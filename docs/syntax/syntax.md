@@ -119,8 +119,12 @@ stateDiagram-v2
 stateDiagram-v2
   state Type {
     direction LR
-    [*] --> AtomicType
-    AtomicType --> [*]
+    [*] --> PrimitiveType
+    PrimitiveType --> [*]
+    [*] --> CompoundType
+    CompoundType --> [*]
+    [*] --> CustomType
+    CustomType --> [*]
   }
 ```
 
@@ -298,6 +302,8 @@ state Constant {
   Bool --> [*]
   [*] --> Char
   Char --> [*]
+  [*] --> String
+  String --> [*]
 }
 ```
 
@@ -343,7 +349,48 @@ state UnaryOp {
 
 ```mermaid
 stateDiagram-v2
-state AtomicType {
+state PrimitiveType {
+  direction LR
+  [*] --> [*]: int
+  [*] --> [*]: float
+  [*] --> [*]: bool
+  [*] --> [*]: char
+}
+```
+
+```mermaid
+stateDiagram-v2
+state CompoundType {
+  direction LR
+  [*] --> TupleType
+  TupleType --> [*]
+  [*] --> ArrayType
+  ArrayType --> [*]
+}
+```
+
+```mermaid
+stateDiagram-v2
+state TupleType {
+  direction LR
+  [*] --> Type: (
+  Type --> [*]: )
+  Type --> Type: ,
+}
+```
+
+```mermaid
+stateDiagram-v2
+state ArrayType {
+  direction LR
+  [*] --> Type: [
+  Type --> [*]: ]
+}
+```
+
+```mermaid
+stateDiagram-v2
+state PrimitiveType {
   direction LR
   [*] --> [*]: int
   [*] --> [*]: float
