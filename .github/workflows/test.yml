@@ -10,11 +10,11 @@ env:
   CARGO_TERM_COLOR: always
   
 jobs:
-  build:
+  test:
 
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
     - name: run tests
-      run: cargo test --verbose
+      run: cargo test --verbose --all-features
