@@ -1,9 +1,9 @@
 use std::fmt::Display;
 
 use chumsky::{
-    prelude::{filter, just, Simple, one_of, take_until, skip_then_retry_until},
+    prelude::{filter, just, one_of, skip_then_retry_until, take_until, Simple},
     text::{self, TextParser},
-    Parser
+    Parser,
 };
 
 pub type Span = std::ops::Range<usize>;
@@ -86,32 +86,28 @@ impl Display for Token {
     }
 }
 
-
 fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
-
-    let keyword_or_id = text::ident().map(|s: String| {
-      match s.as_str() {
-        "void"      => Token::Void,
-        "fun"       => Token::Fun,
-        "class"     => Token::Class,
+    let keyword_or_id = text::ident().map(|s: String| match s.as_str() {
+        "void" => Token::Void,
+        "fun" => Token::Fun,
+        "class" => Token::Class,
         "interface" => Token::Interface,
-        "inherits"  => Token::Inherits,
-        "implements"=> Token::Implements,
-        "if"        => Token::If,
-        "else"      => Token::Else,
-        "let"       => Token::Let,
-        "return"    => Token::Return,
-        "for"       => Token::For,
-        "in"        => Token::In,
-        "while"     => Token::While,
-        _           => Token::Ident(s),
-      }
+        "inherits" => Token::Inherits,
+        "implements" => Token::Implements,
+        "if" => Token::If,
+        "else" => Token::Else,
+        "let" => Token::Let,
+        "return" => Token::Return,
+        "for" => Token::For,
+        "in" => Token::In,
+        "while" => Token::While,
+        _ => Token::Ident(s),
     });
 
     let float_ = text::int(10)
-    .chain::<char, _, _>(just('.').chain(text::digits(10)))
-    .collect::<String>()
-    .map(Token::Float);
+        .chain::<char, _, _>(just('.').chain(text::digits(10)))
+        .collect::<String>()
+        .map(Token::Float);
 
     let int_ = text::int(10).map(Token::Int);
 
@@ -125,28 +121,26 @@ fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         .delimited_by(just('\''), just('\''))
         .map(Token::Char);
 
-    let ctrl = one_of("()[]{};,")
-        .map(Token::Ctrl);
+    let ctrl = one_of("()[]{},;:").map(Token::Ctrl);
 
-    let comment = just("//")
-        .then(take_until(just('\n')))
-        .padded();
+    let comment = just("//").then(take_until(just('\n'))).padded();
 
-    let op = just("+").to(Token::Op(Op::Add))
-        .or(just("-") .to(Token::Op(Op::Sub)))
-        .or(just("*") .to(Token::Op(Op::Mul)))
-        .or(just("/") .to(Token::Op(Op::Div)))
-        .or(just(".") .to(Token::Op(Op::Dot)))
-        .or(just("<") .to(Token::Op(Op::Lt )))
-        .or(just(">") .to(Token::Op(Op::Gt )))
-        .or(just("<=").to(Token::Op(Op::Lte)))
+    let op = just("<=")
+        .to(Token::Op(Op::Lte))
         .or(just(">=").to(Token::Op(Op::Gte)))
-        .or(just("==").to(Token::Op(Op::Eq )))
-        .or(just("!=").to(Token::Op(Op::Ne )))
+        .or(just("==").to(Token::Op(Op::Eq)))
+        .or(just("!=").to(Token::Op(Op::Ne)))
         .or(just("&&").to(Token::Op(Op::And)))
-        .or(just("||").to(Token::Op(Op::Or )))
-        .or(just("!") .to(Token::Op(Op::Not)))
-        .or(just("=") .to(Token::Op(Op::Assign)));
+        .or(just("||").to(Token::Op(Op::Or)))
+        .or(just("+").to(Token::Op(Op::Add)))
+        .or(just("-").to(Token::Op(Op::Sub)))
+        .or(just("*").to(Token::Op(Op::Mul)))
+        .or(just("/").to(Token::Op(Op::Div)))
+        .or(just(".").to(Token::Op(Op::Dot)))
+        .or(just("<").to(Token::Op(Op::Lt)))
+        .or(just(">").to(Token::Op(Op::Gt)))
+        .or(just("!").to(Token::Op(Op::Not)))
+        .or(just("=").to(Token::Op(Op::Assign)));
 
     let token = float_
         .or(int_)
@@ -164,7 +158,6 @@ fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
     token
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -177,265 +170,137 @@ let z = x + y;
         ";
         let (tokens, errs) = lexer().parse_recovery(src);
 
-            let tokens = tokens.unwrap();
+        let tokens = tokens.unwrap();
 
-            println!("{:?}", errs);
-            assert!(errs.is_empty());
+        println!("{:?}", errs);
+        assert!(errs.is_empty());
 
-            assert_eq!(tokens.len(), 12);
+        assert_eq!(tokens[0], (Token::Let, 1..4));
+        assert_eq!(tokens[1], (Token::Ident("x".to_string()), 5..6));
+        assert_eq!(tokens[2], (Token::Op(Op::Assign), 7..8));
+        assert_eq!(tokens[3], (Token::Int("1".to_string()), 9..10));
+        assert_eq!(tokens[4], (Token::Ctrl(';'), 10..11));
 
-            assert_eq!(tokens[0], (Token::Let, 1..4));
-            assert_eq!(tokens[1], (Token::Ident("x".to_string()), 5..6));
-            assert_eq!(tokens[2], (Token::Op(Op::Assign), 7..8));
-            assert_eq!(tokens[3], (Token::Int("1".to_string()), 9..10));
-            assert_eq!(tokens[4], (Token::Ctrl(';'), 10..11));
+        assert_eq!(tokens[5], (Token::Let, 12..15));
+        assert_eq!(tokens[6], (Token::Ident("z".to_string()), 16..17));
+        assert_eq!(tokens[7], (Token::Op(Op::Assign), 18..19));
+        assert_eq!(tokens[8], (Token::Ident("x".to_string()), 20..21));
+        assert_eq!(tokens[9], (Token::Op(Op::Add), 22..23));
+        assert_eq!(tokens[10], (Token::Ident("y".to_string()), 24..25));
+        assert_eq!(tokens[11], (Token::Ctrl(';'), 25..26));
 
-            assert_eq!(tokens[5], (Token::Let, 12..15));
-            assert_eq!(tokens[6], (Token::Ident("z".to_string()), 16..17));
-            assert_eq!(tokens[7], (Token::Op(Op::Assign), 18..19));
-            assert_eq!(tokens[8], (Token::Ident("x".to_string()), 20..21));
-            assert_eq!(tokens[9], (Token::Op(Op::Add), 22..23));
-            assert_eq!(tokens[10], (Token::Ident("y".to_string()), 24..25));
-            assert_eq!(tokens[11], (Token::Ctrl(';'), 25..26));
-            
+        assert_eq!(tokens.len(), 12);
     }
 
     #[test]
     fn test_operators() {
         let src = "
-let x = 1 + 3 * 5;
-let y = 6.0 + 3;
-        ";
++ - * / < > <= >= == != && || ! = .
+";
         let (tokens, errs) = lexer().parse_recovery(src);
 
-            let tokens = tokens.unwrap();
+        let tokens = tokens.unwrap();
 
-            println!("{:?}", errs);
-            assert!(errs.is_empty());
+        println!("{:?}", errs);
+        assert!(errs.is_empty());
 
-            assert_eq!(tokens.len(), 16);
+        assert_eq!(tokens[0], (Token::Op(Op::Add), 1..2));
+        assert_eq!(tokens[1], (Token::Op(Op::Sub), 3..4));
+        assert_eq!(tokens[2], (Token::Op(Op::Mul), 5..6));
+        assert_eq!(tokens[3], (Token::Op(Op::Div), 7..8));
+        assert_eq!(tokens[4], (Token::Op(Op::Lt), 9..10));
+        assert_eq!(tokens[5], (Token::Op(Op::Gt), 11..12));
+        assert_eq!(tokens[6], (Token::Op(Op::Lte), 13..15));
+        assert_eq!(tokens[7], (Token::Op(Op::Gte), 16..18));
+        assert_eq!(tokens[8], (Token::Op(Op::Eq), 19..21));
+        assert_eq!(tokens[9], (Token::Op(Op::Ne), 22..24));
+        assert_eq!(tokens[10], (Token::Op(Op::And), 25..27));
+        assert_eq!(tokens[11], (Token::Op(Op::Or), 28..30));
+        assert_eq!(tokens[12], (Token::Op(Op::Not), 31..32));
+        assert_eq!(tokens[13], (Token::Op(Op::Assign), 33..34));
+        assert_eq!(tokens[14], (Token::Op(Op::Dot), 35..36));
 
-            assert_eq!(tokens[0], (Token::Let, 1..4));
-            assert_eq!(tokens[1], (Token::Ident("x".to_string()), 5..6));
-            assert_eq!(tokens[2], (Token::Op(Op::Assign), 7..8));
-            assert_eq!(tokens[3], (Token::Int("1".to_string()), 9..10));
-            assert_eq!(tokens[4], (Token::Op(Op::Add), 11..12));
-            assert_eq!(tokens[5], (Token::Int("3".to_string()), 13..14));
-            assert_eq!(tokens[6], (Token::Op(Op::Mul), 15..16));
-            assert_eq!(tokens[7], (Token::Int("5".to_string()), 17..18));
-            assert_eq!(tokens[8], (Token::Ctrl(';'), 18..19));
-
-            assert_eq!(tokens[9], (Token::Let, 20..23));
-            assert_eq!(tokens[10], (Token::Ident("y".to_string()), 24..25));
-            assert_eq!(tokens[11], (Token::Op(Op::Assign), 26..27));
-            assert_eq!(tokens[12], (Token::Float("6.0".to_string()), 28..31));
-            assert_eq!(tokens[13], (Token::Op(Op::Add), 32..33));
-            assert_eq!(tokens[14], (Token::Int("3".to_string()), 34..35));
-            assert_eq!(tokens[15], (Token::Ctrl(';'), 35..36));
-            
+        assert_eq!(tokens.len(), 15);
     }
 
     #[test]
     fn test_keywords() {
         let src = "
-if x > 9 {
-    y = 1;
-} else {
-    y = 0;
-}
-        ";
+if else while for in return fun let class interface inherits implements
+";
         let (tokens, errs) = lexer().parse_recovery(src);
 
-            let tokens = tokens.unwrap();
+        let tokens = tokens.unwrap();
 
-            println!("{:?}", errs);
-            assert!(errs.is_empty());
+        println!("{:?}", errs);
+        assert!(errs.is_empty());
 
-            assert_eq!(tokens.len(), 17);
+        assert_eq!(tokens[0], (Token::If, 1..3));
+        assert_eq!(tokens[1], (Token::Else, 4..8));
+        assert_eq!(tokens[2], (Token::While, 9..14));
+        assert_eq!(tokens[3], (Token::For, 15..18));
+        assert_eq!(tokens[4], (Token::In, 19..21));
+        assert_eq!(tokens[5], (Token::Return, 22..28));
+        assert_eq!(tokens[6], (Token::Fun, 29..32));
+        assert_eq!(tokens[7], (Token::Let, 33..36));
+        assert_eq!(tokens[8], (Token::Class, 37..42));
+        assert_eq!(tokens[9], (Token::Interface, 43..52));
+        assert_eq!(tokens[10], (Token::Inherits, 53..61));
+        assert_eq!(tokens[11], (Token::Implements, 62..72));
 
-            assert_eq!(tokens[0], (Token::If, 1..3));
-            assert_eq!(tokens[1], (Token::Ident("x".to_string()), 4..5));
-            assert_eq!(tokens[2], (Token::Op(Op::Gt), 6..7));
-            assert_eq!(tokens[3], (Token::Int("9".to_string()), 8..9));
-            assert_eq!(tokens[4], (Token::Ctrl('{'), 10..11));
-
-            assert_eq!(tokens[5], (Token::Ident("y".to_string()), 16..17));
-            assert_eq!(tokens[6], (Token::Op(Op::Assign), 18..19));
-            assert_eq!(tokens[7], (Token::Int("1".to_string()), 20..21));
-            assert_eq!(tokens[8], (Token::Ctrl(';'), 21..22));
-
-            assert_eq!(tokens[9], (Token::Ctrl('}'), 23..24));
-            assert_eq!(tokens[10], (Token::Else, 25..29));
-            assert_eq!(tokens[11], (Token::Ctrl('{'), 30..31));
-
-            assert_eq!(tokens[12], (Token::Ident("y".to_string()), 36..37));
-            assert_eq!(tokens[13], (Token::Op(Op::Assign), 38..39));
-            assert_eq!(tokens[14], (Token::Int("0".to_string()), 40..41));
-            assert_eq!(tokens[15], (Token::Ctrl(';'), 41..42));
-            assert_eq!(tokens[16], (Token::Ctrl('}'), 43..44));
-            
+        assert_eq!(tokens.len(), 12);
     }
 
     #[test]
     fn test_idents() {
         let src = "
-let x1 = 20;
-let x2 = x1;
+normal __dunder__ camelCase PascalCase snake_case CONSTANT_CASE numbered123 _123 _123_
         ";
         let (tokens, errs) = lexer().parse_recovery(src);
 
-            let tokens = tokens.unwrap();
+        let tokens = tokens.unwrap();
 
-            println!("{:?}", errs);
-            assert!(errs.is_empty());
+        println!("{:?}", errs);
+        assert!(errs.is_empty());
 
-            assert_eq!(tokens.len(), 10);
+        assert_eq!(tokens[0], (Token::Ident("normal".to_string()), 1..7));
+        assert_eq!(tokens[1], (Token::Ident("__dunder__".to_string()), 8..18));
+        assert_eq!(tokens[2], (Token::Ident("camelCase".to_string()), 19..28));
+        assert_eq!(tokens[3], (Token::Ident("PascalCase".to_string()), 29..39));
+        assert_eq!(tokens[4], (Token::Ident("snake_case".to_string()), 40..50));
+        assert_eq!(
+            tokens[5],
+            (Token::Ident("CONSTANT_CASE".to_string()), 51..64)
+        );
+        assert_eq!(tokens[6], (Token::Ident("numbered123".to_string()), 65..76));
+        assert_eq!(tokens[7], (Token::Ident("_123".to_string()), 77..81));
+        assert_eq!(tokens[8], (Token::Ident("_123_".to_string()), 82..87));
 
-            assert_eq!(tokens[0], (Token::Let, 1..4));
-            assert_eq!(tokens[1], (Token::Ident("x1".to_string()), 5..7));
-            assert_eq!(tokens[2], (Token::Op(Op::Assign), 8..9));
-            assert_eq!(tokens[3], (Token::Int("20".to_string()), 10..12));
-            assert_eq!(tokens[4], (Token::Ctrl(';'), 12..13));
-
-            assert_eq!(tokens[5], (Token::Let, 14..17));
-            assert_eq!(tokens[6], (Token::Ident("x2".to_string()), 18..20));
-            assert_eq!(tokens[7], (Token::Op(Op::Assign), 21..22));
-            assert_eq!(tokens[8], (Token::Ident("x1".to_string()), 23..25));
-            assert_eq!(tokens[9], (Token::Ctrl(';'), 25..26));
-            
+        assert_eq!(tokens.len(), 9);
     }
 
     #[test]
-    fn test_ctrl_chars() {
+    fn test_ctrl() {
         let src = "
-let x = (2 + 3) * 2;
-let y[2];
+[ ] ( ) { } , ; :
         ";
         let (tokens, errs) = lexer().parse_recovery(src);
 
-            let tokens = tokens.unwrap();
+        let tokens = tokens.unwrap();
 
-            println!("{:?}", errs);
-            assert!(errs.is_empty());
+        println!("{:?}", errs);
+        assert!(errs.is_empty());
 
-            assert_eq!(tokens.len(), 17);
+        assert_eq!(tokens[0], (Token::Ctrl('['), 1..2));
+        assert_eq!(tokens[1], (Token::Ctrl(']'), 3..4));
+        assert_eq!(tokens[2], (Token::Ctrl('('), 5..6));
+        assert_eq!(tokens[3], (Token::Ctrl(')'), 7..8));
+        assert_eq!(tokens[4], (Token::Ctrl('{'), 9..10));
+        assert_eq!(tokens[5], (Token::Ctrl('}'), 11..12));
+        assert_eq!(tokens[6], (Token::Ctrl(','), 13..14));
+        assert_eq!(tokens[7], (Token::Ctrl(';'), 15..16));
+        assert_eq!(tokens[8], (Token::Ctrl(':'), 17..18));
 
-            assert_eq!(tokens[0], (Token::Let, 1..4));
-            assert_eq!(tokens[1], (Token::Ident("x".to_string()), 5..6));
-            assert_eq!(tokens[2], (Token::Op(Op::Assign), 7..8));
-            assert_eq!(tokens[3], (Token::Ctrl('('), 9..10));
-            assert_eq!(tokens[4], (Token::Int("2".to_string()), 10..11));
-            assert_eq!(tokens[5], (Token::Op(Op::Add), 12..13));
-            assert_eq!(tokens[6], (Token::Int("3".to_string()), 14..15));
-            assert_eq!(tokens[7], (Token::Ctrl(')'), 15..16));
-            assert_eq!(tokens[8], (Token::Op(Op::Mul), 17..18));
-            assert_eq!(tokens[9], (Token::Int("2".to_string()), 19..20));
-            assert_eq!(tokens[10], (Token::Ctrl(';'), 20..21));
-
-            assert_eq!(tokens[11], (Token::Let, 22..25));
-            assert_eq!(tokens[12], (Token::Ident("y".to_string()), 26..27));
-            assert_eq!(tokens[13], (Token::Ctrl('['), 27..28));
-            assert_eq!(tokens[14], (Token::Int("2".to_string()), 28..29));
-            assert_eq!(tokens[15], (Token::Ctrl(']'), 29..30));
-            assert_eq!(tokens[16], (Token::Ctrl(';'), 30..31));
-            
-    }
-
-    #[test]
-    fn test_tuple() {
-        let src = "
-let x(3, 6);
-let y(2, 'a', 3.0);
-        ";
-        let (tokens, errs) = lexer().parse_recovery(src);
-
-            let tokens = tokens.unwrap();
-
-            println!("{:?}", errs);
-            assert!(errs.is_empty());
-
-            assert_eq!(tokens.len(), 18);
-
-            assert_eq!(tokens[0], (Token::Let, 1..4));
-            assert_eq!(tokens[1], (Token::Ident("x".to_string()), 5..6));
-            assert_eq!(tokens[2], (Token::Ctrl('('), 6..7));
-            assert_eq!(tokens[3], (Token::Int("3".to_string()), 7..8));
-            assert_eq!(tokens[4], (Token::Ctrl(','), 8..9));
-            assert_eq!(tokens[5], (Token::Int("6".to_string()), 10..11));
-            assert_eq!(tokens[6], (Token::Ctrl(')'), 11..12));
-            assert_eq!(tokens[7], (Token::Ctrl(';'), 12..13));
-
-            assert_eq!(tokens[8], (Token::Let, 14..17));
-            assert_eq!(tokens[9], (Token::Ident("y".to_string()), 18..19));
-            assert_eq!(tokens[10], (Token::Ctrl('('), 19..20));
-            assert_eq!(tokens[11], (Token::Int("2".to_string()), 20..21));
-            assert_eq!(tokens[12], (Token::Ctrl(','), 21..22));
-            assert_eq!(tokens[13], (Token::Char('a'), 23..26));
-            assert_eq!(tokens[14], (Token::Ctrl(','), 26..27));
-            assert_eq!(tokens[15], (Token::Float("3.0".to_string()), 28..31));
-            assert_eq!(tokens[16], (Token::Ctrl(')'), 31..32));
-            assert_eq!(tokens[17], (Token::Ctrl(';'), 32..33));
-            
-    }
-
-    #[test]
-    fn test_fun() {
-        let src = "
-fun hola() -> Int {
-    5
-}
-        ";
-        let (tokens, errs) = lexer().parse_recovery(src);
-
-            let tokens = tokens.unwrap();
-
-            println!("{:?}", errs);
-            assert!(errs.is_empty());
-
-            assert_eq!(tokens.len(), 10);
-
-            assert_eq!(tokens[0], (Token::Fun, 1..4));
-            assert_eq!(tokens[1], (Token::Ident("hola".to_string()), 5..9));
-            assert_eq!(tokens[2], (Token::Ctrl('('), 9..10));
-            assert_eq!(tokens[3], (Token::Ctrl(')'), 10..11));
-            assert_eq!(tokens[4], (Token::Op(Op::Sub), 12..13));
-            assert_eq!(tokens[5], (Token::Op(Op::Gt), 13..14));
-            assert_eq!(tokens[6], (Token::Ident("Int".to_string()), 15..18));
-            assert_eq!(tokens[7], (Token::Ctrl('{'), 19..20));
-
-            assert_eq!(tokens[8], (Token::Int("5".to_string()), 25..26));
-
-            assert_eq!(tokens[9], (Token::Ctrl('}'), 27..28));
-    }
-
-    #[test]
-    fn test_class() {
-        let src = "
-class hola{
-    let x = 3;
-}
-        ";
-        let (tokens, errs) = lexer().parse_recovery(src);
-
-            let tokens = tokens.unwrap();
-
-            println!("{:?}", errs);
-            assert!(errs.is_empty());
-
-            assert_eq!(tokens.len(), 9);
-
-            assert_eq!(tokens[0], (Token::Class, 1..6));
-            assert_eq!(tokens[1], (Token::Ident("hola".to_string()), 7..11));
-            assert_eq!(tokens[2], (Token::Ctrl('{'), 11..12));
-
-            assert_eq!(tokens[3], (Token::Let, 17..20));
-            assert_eq!(tokens[4], (Token::Ident("x".to_string()), 21..22));
-            assert_eq!(tokens[5], (Token::Op(Op::Assign), 23..24));
-            assert_eq!(tokens[6], (Token::Int("3".to_string()), 25..26));
-            assert_eq!(tokens[7], (Token::Ctrl(';'), 26..27));
-
-            assert_eq!(tokens[8], (Token::Ctrl('}'), 28..29));
-            
+        assert_eq!(tokens.len(), 9);
     }
 }
-
