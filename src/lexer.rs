@@ -108,12 +108,12 @@ fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
       }
     });
 
-    let int_ = text::int(10).map(Token::Int);
-
     let float_ = text::int(10)
-        .chain::<char, _, _>(just('.').chain(text::digits(10)))
-        .collect::<String>()
-        .map(Token::Float);
+    .chain::<char, _, _>(just('.').chain(text::digits(10)))
+    .collect::<String>()
+    .map(Token::Float);
+
+    let int_ = text::int(10).map(Token::Int);
 
     let str_ = filter(|c| *c != '"')
         .repeated()
@@ -148,8 +148,8 @@ fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         .or(just("!") .to(Token::Op(Op::Not)))
         .or(just("=") .to(Token::Op(Op::Assign)));
 
-    let token = int_
-        .or(float_)
+    let token = float_
+        .or(int_)
         .or(str_)
         .or(char_)
         .or(ctrl)
@@ -204,7 +204,7 @@ let z = x + y;
     fn test_operators() {
         let src = "
 let x = 1 + 3 * 5;
-let y = 6 + 3;
+let y = 6.0 + 3;
         ";
         let (tokens, errs) = lexer().parse_recovery(src);
 
@@ -228,10 +228,10 @@ let y = 6 + 3;
             assert_eq!(tokens[9], (Token::Let, 20..23));
             assert_eq!(tokens[10], (Token::Ident("y".to_string()), 24..25));
             assert_eq!(tokens[11], (Token::Op(Op::Assign), 26..27));
-            assert_eq!(tokens[12], (Token::Int("6".to_string()), 28..29));
-            assert_eq!(tokens[13], (Token::Op(Op::Add), 30..31));
-            assert_eq!(tokens[14], (Token::Int("3".to_string()), 32..33));
-            assert_eq!(tokens[15], (Token::Ctrl(';'), 33..34));
+            assert_eq!(tokens[12], (Token::Float("6.0".to_string()), 28..31));
+            assert_eq!(tokens[13], (Token::Op(Op::Add), 32..33));
+            assert_eq!(tokens[14], (Token::Int("3".to_string()), 34..35));
+            assert_eq!(tokens[15], (Token::Ctrl(';'), 35..36));
             
     }
 
@@ -345,7 +345,7 @@ let y[2];
     fn test_tuple() {
         let src = "
 let x(3, 6);
-let y(2, 'a', 3);
+let y(2, 'a', 3.0);
         ";
         let (tokens, errs) = lexer().parse_recovery(src);
 
@@ -364,7 +364,7 @@ let y(2, 'a', 3);
             assert_eq!(tokens[5], (Token::Int("6".to_string()), 10..11));
             assert_eq!(tokens[6], (Token::Ctrl(')'), 11..12));
             assert_eq!(tokens[7], (Token::Ctrl(';'), 12..13));
-            
+
             assert_eq!(tokens[8], (Token::Let, 14..17));
             assert_eq!(tokens[9], (Token::Ident("y".to_string()), 18..19));
             assert_eq!(tokens[10], (Token::Ctrl('('), 19..20));
@@ -372,9 +372,9 @@ let y(2, 'a', 3);
             assert_eq!(tokens[12], (Token::Ctrl(','), 21..22));
             assert_eq!(tokens[13], (Token::Char('a'), 23..26));
             assert_eq!(tokens[14], (Token::Ctrl(','), 26..27));
-            assert_eq!(tokens[15], (Token::Int("3".to_string()), 28..29));
-            assert_eq!(tokens[16], (Token::Ctrl(')'), 29..30));
-            assert_eq!(tokens[17], (Token::Ctrl(';'), 30..31));
+            assert_eq!(tokens[15], (Token::Float("3.0".to_string()), 28..31));
+            assert_eq!(tokens[16], (Token::Ctrl(')'), 31..32));
+            assert_eq!(tokens[17], (Token::Ctrl(';'), 32..33));
             
     }
 
