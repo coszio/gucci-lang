@@ -303,4 +303,45 @@ normal __dunder__ camelCase PascalCase snake_case CONSTANT_CASE numbered123 _123
 
         assert_eq!(tokens.len(), 9);
     }
+
+    #[test]
+    fn test_int() {
+        let src = "
+2 35 254 1000 45000
+        ";
+        let (tokens, errs) = lexer().parse_recovery(src);
+
+        let tokens = tokens.unwrap();
+
+        println!("{:?}", errs);
+        assert!(errs.is_empty());
+
+        assert_eq!(tokens[0], (Token::Int("3".to_string()), 1..2));
+        assert_eq!(tokens[1], (Token::Int("35".to_string()), 3..5));
+        assert_eq!(tokens[2], (Token::Int("254".to_string()), 6..9));
+        assert_eq!(tokens[3], (Token::Int("1000".to_string()), 10..14));
+        assert_eq!(tokens[4], (Token::Int("45000".to_string()), 15..20));
+
+        assert_eq!(tokens.len(), 5);
+    }
+    
+    #[test]
+    fn test_float() {
+        let src = "
+3.5 4.01 100.2503 0.1
+        ";
+        let (tokens, errs) = lexer().parse_recovery(src);
+
+        let tokens = tokens.unwrap();
+
+        println!("{:?}", errs);
+        assert!(errs.is_empty());
+
+        assert_eq!(tokens[0], (Token::Float("3.5".to_string()), 1..4));
+        assert_eq!(tokens[1], (Token::Float("4.01".to_string()), 5..9));
+        assert_eq!(tokens[2], (Token::Float("100.2503".to_string()), 10..18));
+        assert_eq!(tokens[3], (Token::Float("0.1".to_string()), 19..22));
+
+        assert_eq!(tokens.len(), 4);
+    }
 }
