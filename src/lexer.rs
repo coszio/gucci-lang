@@ -316,7 +316,7 @@ normal __dunder__ camelCase PascalCase snake_case CONSTANT_CASE numbered123 _123
         println!("{:?}", errs);
         assert!(errs.is_empty());
 
-        assert_eq!(tokens[0], (Token::Int("3".to_string()), 1..2));
+        assert_eq!(tokens[0], (Token::Int("2".to_string()), 1..2));
         assert_eq!(tokens[1], (Token::Int("35".to_string()), 3..5));
         assert_eq!(tokens[2], (Token::Int("254".to_string()), 6..9));
         assert_eq!(tokens[3], (Token::Int("1000".to_string()), 10..14));
