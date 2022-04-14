@@ -10,6 +10,20 @@ Gucci Lang is an object-oriented language for learning and practicing SOLID prin
 
 It was made using [chumsky](https://github.com/zesterer/chumsky) and [ariadne](https://github.com/zesterer/ariadne), and aims to have a simple syntax for didactic purposes.
 
+# Implemented features
+
+- [x] Lexical analysis
+- [ ] Syntactic analysis
+- [ ] Basic variables semantics: Variables table and functions directory
+- [ ] Basic expression semantics: semantic cube and evaluation
+- [ ] Code generation for conditional statements and loops
+- [ ] Code generation for functions
+- [ ] Memory map for virtual machine execution. 
+  - Virtual Machine: execution of arithmetic expressions and sequential statements.
+- [ ] Code generation for structured data 
+  - Virtual Machine: execution of conditional statements.
+- [ ] 1st version of documentation
+
 ## Made by
 
 [Luis Cossio](https://github.com/coszio)
