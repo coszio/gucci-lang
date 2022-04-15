@@ -166,7 +166,11 @@ stateDiagram-v2
   state ClassDeclaration {
     direction LR
     [*] -->  Id: class
+    Id --> <parent>Id: extends
+    Id --> <interface>Id: implements
     Id --> Block
+    <parent>Id --> Block
+    <interface>Id --> Block
     Block --> [*]
   }
 ```
@@ -218,8 +222,8 @@ state CmpExp {
 stateDiagram-v2
 state TermExp {
   direction LR
-  [*] --> UnaryOp
-  UnaryOp --> Term
+  [*] --> UnaryExp
+  UnaryExp --> [*]
   [*] --> Term
   Term --> [*]
   Term --> TermOp
@@ -229,12 +233,23 @@ state TermExp {
 
 ```mermaid
 stateDiagram-v2
+state UnaryExp {
+  direction LR
+  [*] --> UnaryOp
+  UnaryOp --> UnaryOp
+  UnaryOp --> TermExp
+  TermExp --> [*]
+}
+```
+
+```mermaid
+stateDiagram-v2
 state Term {
   direction LR
-  [*] --> ChainExp
-  ChainExp --> [*]
-  ChainExp --> FacOp
-  FacOp --> ChainExp
+  [*] --> Factor
+  Factor --> [*]
+  Factor --> FacOp
+  FacOp --> Factor
 }
 ```
 

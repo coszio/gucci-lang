@@ -307,7 +307,7 @@ normal __dunder__ camelCase PascalCase snake_case CONSTANT_CASE numbered123 _123
     #[test]
     fn test_int() {
         let src = "
-2 35 254 1000 45000
+2 35 254 1000 45000 0
         ";
         let (tokens, errs) = lexer().parse_recovery(src);
 
@@ -321,8 +321,9 @@ normal __dunder__ camelCase PascalCase snake_case CONSTANT_CASE numbered123 _123
         assert_eq!(tokens[2], (Token::Int("254".to_string()), 6..9));
         assert_eq!(tokens[3], (Token::Int("1000".to_string()), 10..14));
         assert_eq!(tokens[4], (Token::Int("45000".to_string()), 15..20));
+        assert_eq!(tokens[5], (Token::Int("0".to_string()), 21..22));
 
-        assert_eq!(tokens.len(), 5);
+        assert_eq!(tokens.len(), 6);
     }
     
     #[test]
