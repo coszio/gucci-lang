@@ -96,63 +96,6 @@ pub enum UnOp {
     Minus,
 }
 
-// pub enum CmpOp {
-//     Eq,
-//     Ne,
-//     Lt,
-//     Gt,
-//     Lte,
-//     Gte,
-// }
-
-// pub enum TermExp {
-//     TermExp(Term, TermOp, Box<Self>),
-//     UnaryExp(UnaryOp, Box<Self>),
-//     Term(Term),
-// }
-
-// pub enum TermOp {
-//     Add,
-//     Sub,
-// }
-
-// pub enum UnaryOp {
-//     Not,
-//     Minus,
-// }
-
-// pub enum Term {
-//     Term(Factor, FacOp, Box<Self>),
-//     Factor(Factor),
-// }
-
-// pub enum FacOp {
-//     Mul,
-//     Div,
-// }
-
-// pub enum Factor {
-//     Expr(Box<Expr>),
-//     Const(Const),
-//     Ident(Ident),
-//     FunCall(FunCall),
-//     ChainExp(ChainExp),
-// }
-// pub struct FunCall {
-//     pub fun: Ident,
-//     pub args: Vec<Expr>,
-// }
-
-// pub enum ChainExp {
-//     Chain(Chain),
-//     ChainExp(Chain, Box<ChainExp>),
-// }
-
-// pub enum Chain {
-//     Ident(Ident),
-//     FunCall(FunCall)
-// }
-
 #[derive(Debug, Clone, PartialEq)]
 
 pub enum Const {
@@ -179,24 +122,6 @@ pub enum Type {
     //// Custom
     Ident(String),
 }
-
-// pub enum PrimitiveType {
-//     Int,
-//     Float,
-//     Bool,
-//     Char,
-// }
-
-// pub enum CompoundType {
-//     Array(Box<Type>),
-//     Tuple(Vec<Box<Type>>),
-//     String,
-// }
-
-// pub enum CustomType {
-//     Ident(Ident),
-// }
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ArgDecl {
