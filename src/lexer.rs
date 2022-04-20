@@ -8,7 +8,7 @@ use chumsky::{
 
 pub type Span = std::ops::Range<usize>;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Op {
     Add,
     Sub,
@@ -33,7 +33,7 @@ impl Display for Op {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Token {
     Void,
     Ident(String),
@@ -44,6 +44,7 @@ pub enum Token {
     Str(String),
     Char(char),
     Bool(bool),
+    Type(String),
     Fun,
     Class,
     Interface,
@@ -70,6 +71,7 @@ impl Display for Token {
             Token::Bool(b) => write!(f, "{}", b),
             Token::Ctrl(ctrl) => write!(f, "{}", ctrl),
             Token::Op(op) => write!(f, "{}", op),
+            Token::Type(t) => write!(f, "{}", t),
             Token::Fun => write!(f, "function"),
             Token::Class => write!(f, "class"),
             Token::Interface => write!(f, "interface"),
@@ -86,7 +88,7 @@ impl Display for Token {
     }
 }
 
-fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
+pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
     let keyword_or_id = text::ident().map(|s: String| match s.as_str() {
         "void" => Token::Void,
         "fun" => Token::Fun,
@@ -101,6 +103,13 @@ fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         "for" => Token::For,
         "in" => Token::In,
         "while" => Token::While,
+        "true" => Token::Bool(true),
+        "false" => Token::Bool(false),
+        "int" => Token::Type("int".to_string()),
+        "float" => Token::Type("float".to_string()),
+        "bool" => Token::Type("bool".to_string()),
+        "string" => Token::Type("string".to_string()),
+        "char" => Token::Type("char".to_string()),
         _ => Token::Ident(s),
     });
 
@@ -344,5 +353,23 @@ normal __dunder__ camelCase PascalCase snake_case CONSTANT_CASE numbered123 _123
         assert_eq!(tokens[3], (Token::Float("0.1".to_string()), 19..22));
 
         assert_eq!(tokens.len(), 4);
+    }
+
+    #[test]
+    fn test_bool() {
+        let src = "
+true false
+        ";
+        let (tokens, errs) = lexer().parse_recovery(src);
+
+        let tokens = tokens.unwrap();
+
+        println!("{:?}", errs);
+        assert!(errs.is_empty());
+
+        assert_eq!(tokens[0], (Token::Bool(true), 1..5));
+        assert_eq!(tokens[1], (Token::Bool(false), 6..11));
+
+        assert_eq!(tokens.len(), 2);
     }
 }
