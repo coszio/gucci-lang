@@ -6,7 +6,7 @@ use chumsky::{
     Parser, select, recursive,
 };
 
-use crate::lexer::{Token, Span, lexer};
+use crate::lexer::{Token, Span, lexer, Op};
 
 type Spanned<T> = (T, Span);
 
@@ -65,7 +65,9 @@ pub enum Expr {
         op: UnOp,
         rhs: Box<Spanned<Self>>,
     },
-    Constant(Const),
+    Constant(Literal),
+    Ident(String),
+    Array(Vec<Spanned<Self>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -98,7 +100,7 @@ pub enum UnOp {
 
 #[derive(Debug, Clone, PartialEq)]
 
-pub enum Const {
+pub enum Literal {
     Int(i64),
     Float(f64),
     Bool(bool),
@@ -151,39 +153,67 @@ pub struct InterfaceDecl {
 fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
     let ident = select! { Token::Ident(name) => name.clone() }.labelled("identifier");
     
-    // let constant = select! {
-    //     Token::Int(i) => Const::Int(i.parse::<i64>().unwrap()),
-    //     Token::Float(f) => Const::Float(f.parse::<f64>().unwrap()),
-    //     Token::Bool(b) => Const::Bool(b),
-    //     Token::Char(c) => Const::Char(c),
-    //     Token::String(s) => Const::String(s),
-    // }.labelled("constant");
+    let expr = recursive(|expr| {
+        let ident = ident.clone()
+            .map(|name| Expr::Ident(name));
+            
+        let number = filter_map(|span: Span, tok| {
+            match tok {
+                Token::Int(i) => Ok(Expr::Constant(Literal::Int(i.parse().unwrap()))),
+                Token::Float(f) => Ok(Expr::Constant(Literal::Float(f.parse().unwrap()))),
+                _ => Err(Simple::custom(span, "Not a number, expected int or float")),
+            }
+        }).labelled("number");
+
+
+        let literal = select! {
+            Token::Bool(b) => Expr::Constant(Literal::Bool(b)),
+            Token::Char(c) => Expr::Constant(Literal::Char(c)),
+            Token::Str(s) => Expr::Constant(Literal::String(s)),
+        };
+        
+        let literal = literal
+            .or(number)
+            .labelled("literal");
+
+        let item = expr.clone()
+            .map_with_span(|item, span: Span| (item, span))
+            .separated_by(just(Token::Ctrl(',')))
+            .allow_trailing()
+            .labelled("item");
+        
+        let array = item.clone()
+            // .repeated()
+            .delimited_by(just(Token::Ctrl('[')), just(Token::Ctrl(']')))
+            .map(|items| Expr::Array(items))
+            .labelled("array");
+
+        // let args = item
+        //         .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')')))
+        //         .map_with_span(|(arg, span)| (arg, span))
+        //         .repeated()
+        //         .foldl(|mut acc, (arg, span)| {
+        //             let span = acc.1.start..arg.1.end;
+        //             acc.push((args, span));
+        //             acc
+        //         });
+
+        // let fun_call = ident
+        //     .then(item
+        //         .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')')))
+        //         .map_with_span(|(args, span)| (args, span))
+        //         .repeated()
+        //     )
+        //     .foldl(| |);
+
+        literal
+            .or(array)
+            .or(ident)
+            .labelled("expr")
+
+    });
     
     // let expr = recursive(|expr| {
-    //     let item = expr
-    //         .clone()
-    //         .separated_by(just(Token::Ctrl(',')))
-    //         .allow_trailing();
-
-    //     let args = item
-    //             .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')')))
-    //             .map_with_span(|(arg, span)| (arg, span))
-    //             .repeated()
-    //             .foldl(|mut acc, (arg, span)| {
-    //                 let span = acc.1.start..arg.1.end;
-    //                 acc.push((args, span));
-    //                 acc
-    //             });
-
-    //     let fun_call = ident
-    //         .then(item
-    //             .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')')))
-    //             .map_with_span(|(args, span)| (args, span))
-    //             .repeated()
-    //         )
-    //         .foldl(| |);
-
-    //     expr
     // });
 
     let type_ = recursive(|type_| {
@@ -212,23 +242,19 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
     });
         
     // A let expression
-    let let_unassigned = just(Token::Let)
+    let let_decl = just(Token::Let)
         .ignore_then(ident)
         .then_ignore(just(Token::Ctrl(':')))
         .then(type_);
-
-    // let let_assigned = let_unassigned
-    //     .then_ignore(just(Token::Op("=")))
-    //     .then(expr);
-    
-    let let_ = 
-        // let_assigned
-        // .map(|(id, type_, value)| Stmt::Declaration(Decl::Let(VarDecl { id, type_, value: Some(value) })))
-        // .or(
-            let_unassigned
-            .map(|(id, type_)| Stmt::Declaration(Decl::Let { id, type_, value: None }))
-        // )
-        ;
+        
+    let let_assign = let_decl.clone()
+        .then_ignore(just(Token::Op(Op::Assign)))
+        .then(expr);
+        
+    let let_ = let_assign
+        .map(|((id, type_), value)| Stmt::Declaration(Decl::Let { id, type_, value: Some(value) }))
+        .or(let_decl
+            .map(|(id, type_)| Stmt::Declaration(Decl::Let { id, type_, value: None })));
     
     let decl = let_;
 
@@ -236,9 +262,7 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
         .then_ignore(just(Token::Ctrl(';')));
 
     stmt.recover_with(skip_then_retry_until([]))
-        // .padded_by(comment.repeated())
         .map_with_span(|tok, span: Span| (tok, span))
-        // .padded()
         .repeated()
 
 }
@@ -249,6 +273,20 @@ mod tests {
     use chumsky::Stream;
 
     use super::*;
+
+    fn parse_from(input: &str) -> Vec<Spanned<Stmt>> {
+        let (tokens, lex_errs) = lexer().parse_recovery(input);
+        assert!(lex_errs.is_empty());
+        let tokens = tokens.unwrap();
+
+        let len = input.chars().count();
+
+        let (stmts, parse_errs) = parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
+        
+        println!("{:?}", parse_errs);
+
+        stmts.unwrap()
+    }
 
     #[test]
     fn test_var_decl() {
@@ -261,18 +299,7 @@ let e: string;
 let f: [int];
 ";
 
-        let (tokens, lex_errs) = lexer().parse_recovery(src);
-        assert!(lex_errs.is_empty());
-        let tokens = tokens.unwrap();
-
-        let len = src.chars().count();
-
-        let (stmts, parse_errs) = parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
-
-        println!("{:?}", parse_errs);
-        assert!(parse_errs.is_empty());
-        // assert_eq!(stmts.len(), 6);
-        let stmts = stmts.unwrap();
+        let stmts = parse_from(src);
 
         assert_eq!(
             stmts[0],
@@ -441,15 +468,89 @@ while (a < 10) {
     
     #[test]
     fn test_asgmt() {
-        let src = "
-let a: int = 1;
-let b: float = 2.0;
-let c: bool = true;
-let d: char = 'a';
-let e: string = \"hello\";
-let f: [int] = [1, 2, 3, 4, 5];
-";
-        todo!();
+        let src = r#"
+let a: int = 1; let b: float = 2.0; let c: bool = true; let d: char = 'a'; let e: string = "hello"; let f: [int] = [1, 2, 3, 4, 5];
+"#;
+
+        let stmts = parse_from(src);
+
+        assert_eq!(
+            stmts[0],
+            (
+                Stmt::Declaration(Decl::Let {
+                    id: "a".to_string(),
+                    type_: Type::Int,
+                    value: Some(Expr::Constant(Literal::Int(1)))
+                }),
+                1..16
+            ) 
+        );
+
+        assert_eq!(
+            stmts[1],
+            (
+                Stmt::Declaration(Decl::Let {
+                    id: "b".to_string(),
+                    type_: Type::Float,
+                    value: Some(Expr::Constant(Literal::Float(2.0)))
+                }),
+                17..36
+            ) 
+        );
+
+        assert_eq!(
+            stmts[2],
+            (
+                Stmt::Declaration(Decl::Let {
+                    id: "c".to_string(),
+                    type_: Type::Bool,
+                    value: Some(Expr::Constant(Literal::Bool(true)))
+                }),
+                37..56
+            ) 
+        );
+
+        assert_eq!(
+            stmts[3],
+            (
+                Stmt::Declaration(Decl::Let {
+                    id: "d".to_string(),
+                    type_: Type::Char,
+                    value: Some(Expr::Constant(Literal::Char('a')))
+                }),
+                57..75
+            ) 
+        );
+
+        assert_eq!(
+            stmts[4],
+            (
+                Stmt::Declaration(Decl::Let {
+                    id: "e".to_string(),
+                    type_: Type::String,
+                    value: Some(Expr::Constant(Literal::String("hello".to_string())))
+                }),
+                76..100
+            ) 
+        );
+
+        assert_eq!(
+            stmts[5],
+            (
+                Stmt::Declaration(Decl::Let {
+                    id: "f".to_string(),
+                    type_: Type::Array(Box::new(Type::Int)),
+                    value: Some(Expr::Array(vec![
+                        (Expr::Constant(Literal::Int(1)), 117..118),
+                        (Expr::Constant(Literal::Int(2)), 120..121),
+                        (Expr::Constant(Literal::Int(3)), 123..124),
+                        (Expr::Constant(Literal::Int(4)), 126..127),
+                        (Expr::Constant(Literal::Int(5)), 129..130),
+                    ]))
+                }),
+                101..132
+            ) 
+        );
     }
 
     #[test]
