@@ -1,9 +1,8 @@
 use std::fmt::Display;
 
 use chumsky::{
-    prelude::{filter, filter_map, just, one_of, skip_then_retry_until, take_until, recursive, Simple, Recursive},
-    text::{self, TextParser},
-    Parser, select, recursive,
+    prelude::{filter_map, just, skip_then_retry_until, recursive, Simple},
+    Parser, select
 };
 
 use crate::lexer::{Token, Span, lexer, Op};
@@ -33,7 +32,7 @@ pub enum Decl {
     },
     Fun {
         id: String,
-        args: Vec<ArgDecl>,
+        args: Vec<Param>,
         ret_type: Type,
         // body: Block,
     },
@@ -144,11 +143,10 @@ pub enum Type {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ArgDecl {
+struct Param {
     pub name: String,
     pub type_: Type,
 }
-
 // #[derive(Debug, Clone, PartialEq)]
 // pub struct Block {
 //     pub stmts: Vec<Stmt>,
@@ -810,7 +808,6 @@ a = -1 + 2;
                 81..92
             ) 
         );
-        // todo!();
     }
 
     #[test]
@@ -893,16 +890,103 @@ c = foo(a, b);
         );
 
     }
+    
     #[test]
     fn test_boolean_exp() {
         let src = "
-a = true;
-b = false;
-c = a && b;
-d = a || b;
-e = !a;
+a = true; b = false; c = a && b; d = a || b; e = !a; f = true || !false && a;
 ";
-        todo!();
+
+        let stmts = parse_from(src);
+        println!("{:?}", stmts);
+
+        assert_eq!(
+            stmts[0],
+            (
+                Stmt::Assignment {
+                    id: "a".to_string(),
+                    value: (Expr::Constant(Literal::Bool(true)), 5..9),
+                },
+                1..10
+            )
+        );
+
+        assert_eq!(
+            stmts[1],
+            (
+                Stmt::Assignment {
+                    id: "b".to_string(),
+                    value: (Expr::Constant(Literal::Bool(false)), 15..20),
+                },
+                11..21
+            )
+        );
+
+        assert_eq!(
+            stmts[2],
+            (
+                Stmt::Assignment {
+                    id: "c".to_string(),
+                    value: (Expr::Binary {
+                        lhs: Box::new((Expr::Ident("a".to_string()), 26..27)), 
+                        op: BinOp::And, 
+                        rhs: Box::new((Expr::Ident("b".to_string()), 31..32)), 
+                    }, 26..32),
+                },
+                22..33
+            )
+        );
+
+        assert_eq!(
+            stmts[3],
+            (
+                Stmt::Assignment {
+                    id: "d".to_string(),
+                    value: (Expr::Binary {
+                        lhs: Box::new((Expr::Ident("a".to_string()), 38..39)), 
+                        op: BinOp::Or, 
+                        rhs: Box::new((Expr::Ident("b".to_string()), 43..44)), 
+                    }, 38..44),
+                },
+                34..45
+            )
+        );
+
+        assert_eq!(
+            stmts[4],
+            (
+                Stmt::Assignment {
+                    id: "e".to_string(),
+                    value: (Expr::Unary {
+                        op: UnOp::Not,
+                        rhs: Box::new((Expr::Ident("a".to_string()), 51..52)),
+                    }, 50..52),
+                },
+                46..53
+            )
+        );
+
+        assert_eq!(
+            stmts[5],
+            (
+                Stmt::Assignment {
+                    id: "f".to_string(),
+                    value: (Expr::Binary {
+                        lhs: Box::new((Expr::Constant(Literal::Bool(true)), 58..62)), 
+                        op: BinOp::Or, 
+                        rhs: Box::new((Expr::Binary {
+                            lhs: Box::new((Expr::Unary {
+                                op: UnOp::Not,
+                                rhs: Box::new((Expr::Constant(Literal::Bool(false)), 67..72)),
+                            }, 66..72)), 
+                            op: BinOp::And, 
+                            rhs: Box::new((Expr::Ident("a".to_string()), 76..77)), 
+                        }, 66..77)), 
+                    }, 58..77),
+                },
+                54..78
+            )
+        );
     }
 
     #[test]
