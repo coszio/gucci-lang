@@ -11,14 +11,15 @@ type Spanned<T> = (T, Span);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
-    Declaration(Decl),
-    Assignment {
+    Decl(Decl),
+    Assign {
         id: String, 
         value: Spanned<Expr>,
     },
     // Condition(Spanned<Cond>),
     Loop(Loop),
-    Expression(Spanned<Expr>),
+    Expr(Spanned<Expr>),
+    Return(Spanned<Expr>),
     // Class(ClassDecl),
     // Interface(InterfaceDecl),
 }
@@ -26,15 +27,15 @@ pub enum Stmt {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Decl {
     Let { 
-        id: String,
+        name: String,
         type_: Type,
         value: Option<Spanned<Expr>>,
     },
     Fun {
-        id: String,
-        args: Vec<Param>,
-        ret_type: Type,
-        // body: Block,
+        name: String,
+        params: Vec<Spanned<Param>>,
+        ret_type: Option<Type>,
+        body: Vec<Stmt>,
     },
     // Class {
     //     name: String,
@@ -147,11 +148,10 @@ struct Param {
     pub name: String,
     pub type_: Type,
 }
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct Block {
-//     pub stmts: Vec<Stmt>,
-//     pub ret_type: Option<Type>,
-// }
+#[derive(Debug, Clone, PartialEq)]
+pub struct Block {
+    pub stmts: Vec<Stmt>,
+}
 
 // pub struct ClassDecl {
 //     pub name: String,
@@ -325,9 +325,6 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
         or_expr
 
     });
-    
-    // let expr = recursive(|expr| {
-    // });
 
     let type_ = recursive(|type_| {
         let simple = select! { 
@@ -353,37 +350,66 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
             // .or(tuple)
             // .map_with_span(|t, span| (t, span))
     });
-        
+    
+    // A var with type
+    let var = ident
+        .clone()
+        .then_ignore(just(Token::Ctrl(':')))
+        .then(type_.clone());
+
     // A let expression
     let let_decl = just(Token::Let)
-        .ignore_then(ident)
-        .then_ignore(just(Token::Ctrl(':')))
-        .then(type_);
-        
+        .ignore_then(var.clone());
         
     let assign_rhs = just(Token::Op(Op::Assign))
-        .ignore_then(expr);
+        .ignore_then(expr.clone());
 
-    let let_assign = let_decl.clone()
+    let let_assigned = let_decl.clone()
         .then(assign_rhs.clone());
 
-    let let_ = let_assign
+    let let_ = let_assigned
         .map(|((id, type_), value)| 
-            Stmt::Declaration(Decl::Let { id, type_, value: Some(value) }))
+            Stmt::Decl(Decl::Let { name: id, type_, value: Some(value) }))
         .or(let_decl
             .map(|(id, type_)| 
-                Stmt::Declaration(Decl::Let { id, type_, value: None })));
+                Stmt::Decl(Decl::Let { name: id, type_, value: None })));
 
     let assign = ident
         .then(assign_rhs.clone())
         .map(|(id, value)| 
-            Stmt::Assignment { id, value });
-    
-    let decl = let_;
-    
-    let stmt = decl
-        .or(assign)
-        .then_ignore(just(Token::Ctrl(';')));
+            Stmt::Assign { id, value });
+
+
+    let return_ = just(Token::Return)
+        .ignore_then(expr.clone())
+        .map(|value| Stmt::Return(value));
+
+    let params = var
+        .clone()
+        .map_with_span(|(name, type_), span| (Param {name, type_}, span))
+        .separated_by(just(Token::Ctrl(',')));
+
+    let stmt = recursive(|stmt| {
+
+        let fun = just(Token::Fun)
+            .ignore_then(ident)
+            .then(params
+                .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')'))))
+            .then(just(Token::Ctrl(':')).ignore_then(type_.clone()).or_not())
+            .then(stmt.repeated()
+                .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}'))))
+            .map(|(((name, params), ret_type), body)| 
+                Stmt::Decl(Decl::Fun { name, params, ret_type, body }));
+
+        let decl = let_
+            .or(fun);
+
+        decl
+            .or(assign)
+            .or(return_)
+            .then_ignore(just(Token::Ctrl(';')))
+
+    });
 
     stmt.recover_with(skip_then_retry_until([]))
         .map_with_span(|tok, span: Span| (tok, span))
@@ -428,8 +454,8 @@ let f: [int];
         assert_eq!(
             stmts[0],
             (
-                Stmt::Declaration(Decl::Let {
-                    id: "a".to_string(),
+                Stmt::Decl(Decl::Let {
+                    name: "a".to_string(),
                     type_: Type::Int,
                     value: None
                 }),
@@ -440,8 +466,8 @@ let f: [int];
         assert_eq!(
             stmts[1],
             (
-                Stmt::Declaration(Decl::Let {
-                    id: "b".to_string(),
+                Stmt::Decl(Decl::Let {
+                    name: "b".to_string(),
                     type_: Type::Float,
                     value: None
                 }),
@@ -452,8 +478,8 @@ let f: [int];
         assert_eq!(
             stmts[2],
             (
-                Stmt::Declaration(Decl::Let {
-                    id: "c".to_string(),
+                Stmt::Decl(Decl::Let {
+                    name: "c".to_string(),
                     type_: Type::Bool,
                     value: None
                 }),
@@ -464,8 +490,8 @@ let f: [int];
         assert_eq!(
             stmts[3],
             (
-                Stmt::Declaration(Decl::Let {
-                    id: "d".to_string(),
+                Stmt::Decl(Decl::Let {
+                    name: "d".to_string(),
                     type_: Type::Char,
                     value: None
                 }),
@@ -476,8 +502,8 @@ let f: [int];
         assert_eq!(
             stmts[4],
             (
-                Stmt::Declaration(Decl::Let {
-                    id: "e".to_string(),
+                Stmt::Decl(Decl::Let {
+                    name: "e".to_string(),
                     type_: Type::String,
                     value: None
                 }),
@@ -488,8 +514,8 @@ let f: [int];
         assert_eq!(
             stmts[5],
             (
-                Stmt::Declaration(Decl::Let {
-                    id: "f".to_string(),
+                Stmt::Decl(Decl::Let {
+                    name: "f".to_string(),
                     type_: Type::Array(Box::new(Type::Int)),
                     value: None
                 }),
@@ -501,17 +527,75 @@ let f: [int];
     #[test]
     fn test_fun_decl() {
         let src = "
-fun foo() {
-    return 1;
-}
+fun foo(): int {     return 1; }; fun bar(a: int, b: float): float {     return a + b; }; fun baz(a: int, b: float) { };";
 
-fun bar(a: int, b: float): float {
-    return a + b;
-}
+        let stmts = parse_from(src);
 
-fun baz(a: int, b: float) {
-}";
-        todo!();
+        assert_eq!(
+            stmts[0],
+            (
+                Stmt::Decl(Decl::Fun {
+                    name: "foo".to_string(),
+                    params: vec![],
+                    ret_type: Some(Type::Int), 
+                    body: vec![
+                        Stmt::Return((Expr::Constant(Literal::Int(1)), 29..30))
+                    ],
+                }),
+                1..34
+            ) 
+        );
+
+        
+        assert_eq!(
+            stmts[1],
+            (
+                Stmt::Decl(Decl::Fun {
+                    name: "bar".to_string(),
+                    params: vec![
+                        (Param {
+                            name: "a".to_string(),
+                            type_: Type::Int,
+                        }, 43..49),
+                        (Param {
+                            name: "b".to_string(),
+                            type_: Type::Float,
+                        }, 51..59),
+                    ],
+                    ret_type: Some(Type::Float), 
+                    body: vec![
+                        Stmt::Return((Expr::Binary {
+                            lhs: Box::new((Expr::Ident("a".to_string()), 81..82)),
+                            op: BinOp::Add,
+                            rhs: Box::new((Expr::Ident("b".to_string()), 85..86))
+                        }, 81..86)),
+                    ],
+                }),
+                35..90
+            ) 
+        );
+
+        assert_eq!(
+            stmts[2],
+            (
+                Stmt::Decl(Decl::Fun {
+                    name: "baz".to_string(),
+                    params: vec![
+                        (Param {
+                            name: "a".to_string(),
+                            type_: Type::Int,
+                        }, 99..105),
+                        (Param {
+                            name: "b".to_string(),
+                            type_: Type::Float,
+                        }, 107..115),
+                    ],
+                    ret_type: None, 
+                    body: vec![],
+                }),
+                91..121
+            ) 
+        );
     }
 
     #[test]
@@ -606,8 +690,8 @@ let f: [int] = [1, 2, 3, 4, 5];
         assert_eq!(
             stmts[0],
             (
-                Stmt::Declaration(Decl::Let {
-                    id: "a".to_string(),
+                Stmt::Decl(Decl::Let {
+                    name: "a".to_string(),
                     type_: Type::Int,
                     value: Some((Expr::Constant(Literal::Int(1)), 14..15))
                 }),
@@ -618,8 +702,8 @@ let f: [int] = [1, 2, 3, 4, 5];
         assert_eq!(
             stmts[1],
             (
-                Stmt::Declaration(Decl::Let {
-                    id: "b".to_string(),
+                Stmt::Decl(Decl::Let {
+                    name: "b".to_string(),
                     type_: Type::Float,
                     value: Some((Expr::Constant(Literal::Float(2.0)), 32..35))
                 }),
@@ -630,8 +714,8 @@ let f: [int] = [1, 2, 3, 4, 5];
         assert_eq!(
             stmts[2],
             (
-                Stmt::Declaration(Decl::Let {
-                    id: "c".to_string(),
+                Stmt::Decl(Decl::Let {
+                    name: "c".to_string(),
                     type_: Type::Bool,
                     value: Some((Expr::Constant(Literal::Bool(true)), 51..55))
                 }),
@@ -642,8 +726,8 @@ let f: [int] = [1, 2, 3, 4, 5];
         assert_eq!(
             stmts[3],
             (
-                Stmt::Declaration(Decl::Let {
-                    id: "d".to_string(),
+                Stmt::Decl(Decl::Let {
+                    name: "d".to_string(),
                     type_: Type::Char,
                     value: Some((Expr::Constant(Literal::Char('a')), 71..74))
                 }),
@@ -654,8 +738,8 @@ let f: [int] = [1, 2, 3, 4, 5];
         assert_eq!(
             stmts[4],
             (
-                Stmt::Declaration(Decl::Let {
-                    id: "e".to_string(),
+                Stmt::Decl(Decl::Let {
+                    name: "e".to_string(),
                     type_: Type::String,
                     value: Some((Expr::Constant(Literal::String("hello".to_string())), 92..99))
                 }),
@@ -666,8 +750,8 @@ let f: [int] = [1, 2, 3, 4, 5];
         assert_eq!(
             stmts[5],
             (
-                Stmt::Declaration(Decl::Let {
-                    id: "f".to_string(),
+                Stmt::Decl(Decl::Let {
+                    name: "f".to_string(),
                     type_: Type::Array(Box::new(Type::Int)),
                     value: Some((Expr::Array(vec![
                         (Expr::Constant(Literal::Int(1)), 117..118),
@@ -698,7 +782,7 @@ a = -1 + 2;
         assert_eq!(
             stmts[0],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "a".to_string(),
                     value: (Expr::Binary {
                         lhs: Box::new((Expr::Constant(Literal::Int(1)), 5..6)), 
@@ -714,7 +798,7 @@ a = -1 + 2;
         assert_eq!(
             stmts[1],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "b".to_string(),
                     value: (Expr::Binary {
                         lhs: Box::new((Expr::Binary {
@@ -734,7 +818,7 @@ a = -1 + 2;
         assert_eq!(
             stmts[2],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "c".to_string(),
                     value: (Expr::Binary {
                         lhs: Box::new((Expr::Binary {
@@ -762,7 +846,7 @@ a = -1 + 2;
         assert_eq!(
             stmts[3],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "d".to_string(),
                     value: (Expr::Binary {
                         lhs: Box::new((Expr::Binary {
@@ -794,7 +878,7 @@ a = -1 + 2;
         assert_eq!(
             stmts[4],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "a".to_string(),
                     value: (Expr::Binary {
                         lhs: Box::new((Expr::Unary {
@@ -825,7 +909,7 @@ c = foo(a, b);
         assert_eq!(
             stmts[0],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "a".to_string(),
                     value: (Expr::Call {
                         fun: Box::new((Expr::Ident("foo".to_string()), 5..8)), 
@@ -839,7 +923,7 @@ c = foo(a, b);
         assert_eq!(
             stmts[1],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "b".to_string(),
                     value: (Expr::Call {
                         fun: Box::new((Expr::Ident("foo".to_string()), 16..19)), 
@@ -855,7 +939,7 @@ c = foo(a, b);
         assert_eq!(
             stmts[2],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "c".to_string(),
                     value: (Expr::Call {
                         fun: Box::new((Expr::Ident("foo".to_string()), 28..31)), 
@@ -875,7 +959,7 @@ c = foo(a, b);
         assert_eq!(
             stmts[3],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "c".to_string(),
                     value: (Expr::Call {
                         fun: Box::new((Expr::Ident("foo".to_string()), 42..45)), 
@@ -903,7 +987,7 @@ a = true; b = false; c = a && b; d = a || b; e = !a; f = true || !false && a;
         assert_eq!(
             stmts[0],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "a".to_string(),
                     value: (Expr::Constant(Literal::Bool(true)), 5..9),
                 },
@@ -914,7 +998,7 @@ a = true; b = false; c = a && b; d = a || b; e = !a; f = true || !false && a;
         assert_eq!(
             stmts[1],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "b".to_string(),
                     value: (Expr::Constant(Literal::Bool(false)), 15..20),
                 },
@@ -925,7 +1009,7 @@ a = true; b = false; c = a && b; d = a || b; e = !a; f = true || !false && a;
         assert_eq!(
             stmts[2],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "c".to_string(),
                     value: (Expr::Binary {
                         lhs: Box::new((Expr::Ident("a".to_string()), 26..27)), 
@@ -940,7 +1024,7 @@ a = true; b = false; c = a && b; d = a || b; e = !a; f = true || !false && a;
         assert_eq!(
             stmts[3],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "d".to_string(),
                     value: (Expr::Binary {
                         lhs: Box::new((Expr::Ident("a".to_string()), 38..39)), 
@@ -955,7 +1039,7 @@ a = true; b = false; c = a && b; d = a || b; e = !a; f = true || !false && a;
         assert_eq!(
             stmts[4],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "e".to_string(),
                     value: (Expr::Unary {
                         op: UnOp::Not,
@@ -969,7 +1053,7 @@ a = true; b = false; c = a && b; d = a || b; e = !a; f = true || !false && a;
         assert_eq!(
             stmts[5],
             (
-                Stmt::Assignment {
+                Stmt::Assign {
                     id: "f".to_string(),
                     value: (Expr::Binary {
                         lhs: Box::new((Expr::Constant(Literal::Bool(true)), 58..62)), 
