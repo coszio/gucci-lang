@@ -20,6 +20,8 @@ pub enum Stmt {
     // Condition(Spanned<Cond>),
     Loop(Loop),
     Expression(Spanned<Expr>),
+    // Class(ClassDecl),
+    // Interface(InterfaceDecl),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,10 +35,30 @@ pub enum Decl {
         id: String,
         args: Vec<ArgDecl>,
         ret_type: Type,
-        body: Block,
+        // body: Block,
     },
+    // Class {
+    //     name: String,
+    //     parent: Option<String>,
+    //     interface: Option<String>,
+    //     body: Block,
+    // },
+    // Interface(InterfaceDecl),
 }
+// class Point {
+//     + public_field1: int;
+//     # protected_field: int;
+//     - private_field: int;
+//     static static_field: int;
 
+//     fun init(): Point {
+//         @.field1 = 0;
+//         @.field2 = 0;
+//         return @;
+//     }
+// }
+// let a: Point = Point.new();
+// 
 
 // pub enum Cond {
 //     If(Spanned<Expr>, Vec<Stmt>),
@@ -44,16 +66,14 @@ pub enum Decl {
 // }
 
 #[derive(Debug, Clone, PartialEq)]
-
 pub enum Loop {
     While(Spanned<Expr>, Vec<Stmt>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-
 pub enum Expr {
     Call {
-        ident: String, 
+        fun: Box<Spanned<Self>>, 
         args: Vec<Spanned<Self>>,
     },
     Binary {
@@ -68,10 +88,10 @@ pub enum Expr {
     Constant(Literal),
     Ident(String),
     Array(Vec<Spanned<Self>>),
+    Parenthesized(Box<Spanned<Self>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-
 pub enum BinOp {
     //// Arithmetic
     Add,
@@ -92,14 +112,12 @@ pub enum BinOp {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-
 pub enum UnOp {
     Not,
-    Minus,
+    Neg,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-
 pub enum Literal {
     Int(i64),
     Float(f64),
@@ -131,23 +149,24 @@ pub struct ArgDecl {
     pub type_: Type,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Block {
-    pub stmts: Vec<Stmt>,
-    pub ret_type: Option<Type>,
-}
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct Block {
+//     pub stmts: Vec<Stmt>,
+//     pub ret_type: Option<Type>,
+// }
 
-pub struct ClassDecl {
-    pub name: String,
-    pub parent: Option<String>,
-    pub interface: Option<String>,
-    pub body: Block,
-}
+// pub struct ClassDecl {
+//     pub name: String,
+//     pub parent: Option<String>,
+//     pub interface: Option<String>,
+//     pub vars: Vec<(Var, Visibility)>,
+//     pub methods: Vec<(Method, Visibility)>,
+// }
 
-pub struct InterfaceDecl {
-    pub name: String,
-    pub body: Block,
-}
+// pub struct InterfaceDecl {
+//     pub name: String,
+//     pub body: Block,
+// }
 
 
 fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
@@ -155,7 +174,7 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
     
     let expr = recursive(|expr| {
         let ident = ident.clone()
-            .map_with_span(|name, span| (Expr::Ident(name), span));
+            .map(Expr::Ident);
             
         let number = filter_map(|span: Span, tok| {
                 match tok {
@@ -163,7 +182,7 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
                     Token::Float(f) => Ok(Expr::Constant(Literal::Float(f.parse().unwrap()))),
                     _ => Err(Simple::custom(span, "Not a number, expected int or float")),
                 }
-            }).map_with_span(|expr, span| (expr, span))
+            })
             .labelled("number");
 
         let value = select! {
@@ -171,52 +190,50 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
             Token::Char(c) => Expr::Constant(Literal::Char(c)),
             Token::Str(s) => Expr::Constant(Literal::String(s)),
         }
-        .map_with_span(|expr, span| (expr, span))
         .or(number);
         
-        let item = expr
+        let items = expr
             .clone()
             .separated_by(just(Token::Ctrl(',')))
-            .allow_trailing()
-            .labelled("item");
+            .allow_trailing();
             
-        let array = item
+        let array = items
             .clone()
             .delimited_by(just(Token::Ctrl('[')), just(Token::Ctrl(']')))
-            .map_with_span(|items, span| (Expr::Array(items), span))
+            .map(Expr::Array)
             .labelled("array");
             
         let atom = value
             .or(ident)
             .or(array)
+            .map_with_span(|expr, span| (expr, span))
             .or(expr
                 .clone()
                 .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')')))
-            );
-        // let args = item
-        //         .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')')))
-        //         .map_with_span(|(arg, span)| (arg, span))
-        //         .repeated()
-        //         .foldl(|mut acc, (arg, span)| {
-        //             let span = acc.1.start..arg.1.end;
-        //             acc.push((args, span));
-        //             acc
-        //         });
+                .map_with_span(|(expr, _), span| (expr, span)));
 
-        // let fun_call = ident
-        //     .then(item
-        //         .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')')))
-        //         .map_with_span(|(args, span)| (args, span))
-        //         .repeated()
-        //     )
-        //     .foldl(| |);
+        let args = items
+                .clone()
+                .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')')))
+                .map_with_span(|arg, span: Span| (arg, span))
+                .repeated();
+
+        let fun_call = atom
+            .clone()
+            .then(args)
+            .foldl(|f, args| {
+                let span = f.1.start..args.1.end;
+                (Expr::Call {
+                    fun: Box::new(f), 
+                    args: args.0
+                }, span)
+            });            
         
         let op = just(Token::Op(Op::Mul))
             .to(BinOp::Mul)
             .or(just(Token::Op(Op::Div))
                 .to(BinOp::Div));
-
-        let product = atom
+        let product = fun_call
             .clone()
             .then(op.then(atom).repeated())
             .foldl(|a, (op, b)| {
@@ -228,13 +245,26 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
                 }, span)
             });
 
+        let op = just(Token::Op(Op::Not)).to(UnOp::Not)
+            .or(just(Token::Op(Op::Sub)).to(UnOp::Neg))
+            .map_with_span(|op, span| (op, span));
+        let unary = op
+            .then(product.clone())
+            .map(|(op,a)| {
+                let span = op.1.start..a.1.end;
+                (Expr::Unary {
+                    op: op.0, 
+                    rhs: Box::new(a)
+                }, span)})
+            .or(product.clone());
+
         let op = just(Token::Op(Op::Add))
             .to(BinOp::Add)
             .or(just(Token::Op(Op::Sub))
                 .to(BinOp::Sub));
-        let sum = product
+        let sum = unary
             .clone()
-            .then(op.then(product).repeated())
+            .then(op.then(unary).repeated())
             .foldl(|a, (op, b)| {
                     let span = a.1.start..b.1.end;                
                     (Expr::Binary {
@@ -244,7 +274,9 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
                     }, span)
                 }
             );
-        
+
+
+            
         let op = filter_map( |span, tok| match tok {
                 Token::Op(Op::Eq) => Ok(BinOp::Eq),
                 Token::Op(Op::Ne) => Ok(BinOp::Ne),
@@ -253,7 +285,7 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
                 Token::Op(Op::Lte) => Ok(BinOp::Lte),
                 Token::Op(Op::Gte) => Ok(BinOp::Gte),
                 _ => Err(Simple::custom(span, "Not a comparison operator")),
-            });        
+            });
         let comparison = sum
             .clone()
             .then(op.then(sum).repeated())
@@ -266,9 +298,8 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
                 }, span)
             });
         
-        let op = just(Token::Op(Op::And)).to(BinOp::And)
-            .or(just(Token::Op(Op::Or)).to(BinOp::Or));
-        let boolean = comparison
+        let op = just(Token::Op(Op::And)).to(BinOp::And);
+        let and_expr = comparison
             .clone()
             .then(op.then(comparison).repeated())
             .foldl(|a, (op, b)| {
@@ -280,7 +311,20 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
                 }, span)
             });
 
-        boolean
+        let op = just(Token::Op(Op::Or)).to(BinOp::Or);
+        let or_expr = and_expr
+            .clone()
+            .then(op.then(and_expr).repeated())
+            .foldl(|a, (op, b)| {
+                let span = a.1.start..b.1.end;
+                (Expr::Binary {
+                    lhs: Box::new(a), 
+                    op, 
+                    rhs: Box::new(b)
+                }, span)
+            });
+
+        or_expr
 
     });
     
@@ -365,7 +409,7 @@ mod tests {
         
         let (stmts, parse_errs) = parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
         
-        println!("errors: {:?}", parse_errs);
+        println!("parse errors: {:?}", parse_errs);
 
         stmts.unwrap()
     }
@@ -647,6 +691,7 @@ a = 1 + 2;
 b = 1 + 2 + 3;
 c = 1 - a * b / 2 + 2;
 d = (1 - a) * b / (2 + 2) + 3;
+a = -1 + 2;
 ";
 
         let stmts = parse_from(src);
@@ -687,12 +732,11 @@ d = (1 - a) * b / (2 + 2) + 3;
             ) 
         );
 
-
         // ((1 - ((a * b) / 2)) + 2)
         assert_eq!(
             stmts[2],
             (
-                (Stmt::Assignment {
+                Stmt::Assignment {
                     id: "c".to_string(),
                     value: (Expr::Binary {
                         lhs: Box::new((Expr::Binary {
@@ -711,15 +755,144 @@ d = (1 - a) * b / (2 + 2) + 3;
                         op: BinOp::Add,
                         rhs: Box::new((Expr::Constant(Literal::Int(2)), 47..48)),
                     },31..48),
-                }, 27..49))
-            );
+                }, 
+                27..49
+            )
+        );
 
-        // ((((1 - a) * b) / (2 + 2)) + 3)
-        
+        //  ((((1 - a) * b) / (2 + 2)) + 3)
+        assert_eq!(
+            stmts[3],
+            (
+                Stmt::Assignment {
+                    id: "d".to_string(),
+                    value: (Expr::Binary {
+                        lhs: Box::new((Expr::Binary {
+                            lhs: Box::new((Expr::Binary {
+                                lhs: Box::new((Expr::Binary {
+                                        lhs: Box::new((Expr::Constant(Literal::Int(1)), 55..56)), 
+                                        op: BinOp::Sub, 
+                                        rhs: Box::new((Expr::Ident("a".to_string()), 59..60)), 
+                                    }, 54..61)),
+                                op: BinOp::Mul, 
+                                rhs: Box::new((Expr::Ident("b".to_string()), 64..65)), 
+                            }, 54..65)),
+                            op: BinOp::Div,
+                            rhs: Box::new((Expr::Binary {
+                                lhs: Box::new((Expr::Constant(Literal::Int(2)), 69..70)), 
+                                op: BinOp::Add, 
+                                rhs: Box::new((Expr::Constant(Literal::Int(2)), 73..74)), 
+                            }, 68..75)),
+                        }, 54..75)),
+                        op: BinOp::Add,
+                        rhs: Box::new((Expr::Constant(Literal::Int(3)), 78..79)),
+                    }, 54..79),
+                },
+                50..80
+            )
+        );
 
+        // ((-1) + 2)
+        assert_eq!(
+            stmts[4],
+            (
+                Stmt::Assignment {
+                    id: "a".to_string(),
+                    value: (Expr::Binary {
+                        lhs: Box::new((Expr::Unary {
+                            op: UnOp::Neg,
+                            rhs: Box::new((Expr::Constant(Literal::Int(1)), 86..87)),
+                        }, 85..87)), 
+                        op: BinOp::Add, 
+                        rhs: Box::new((Expr::Constant(Literal::Int(2)), 90..91))
+                    }, 85..91)
+                },
+                81..92
+            ) 
+        );
         // todo!();
     }
 
+    #[test]
+    fn test_function_calls() {
+        let src = "
+a = foo();
+b = foo(a);
+c = foo(a+b);
+c = foo(a, b);
+";
+
+        let stmts = parse_from(src);
+        println!("{:?}", stmts);
+
+        assert_eq!(
+            stmts[0],
+            (
+                Stmt::Assignment {
+                    id: "a".to_string(),
+                    value: (Expr::Call {
+                        fun: Box::new((Expr::Ident("foo".to_string()), 5..8)), 
+                        args: vec![],
+                    }, 5..10)
+                }, 
+                1..11
+            ) 
+        );
+
+        assert_eq!(
+            stmts[1],
+            (
+                Stmt::Assignment {
+                    id: "b".to_string(),
+                    value: (Expr::Call {
+                        fun: Box::new((Expr::Ident("foo".to_string()), 16..19)), 
+                        args: vec![
+                            (Expr::Ident("a".to_string()), 20..21),
+                        ],
+                    }, 16..22)
+                }, 
+                12..23
+            ) 
+        );
+
+        assert_eq!(
+            stmts[2],
+            (
+                Stmt::Assignment {
+                    id: "c".to_string(),
+                    value: (Expr::Call {
+                        fun: Box::new((Expr::Ident("foo".to_string()), 28..31)), 
+                        args: vec![
+                            (Expr::Binary {
+                                lhs: Box::new((Expr::Ident("a".to_string()), 32..33)), 
+                                op: BinOp::Add, 
+                                rhs: Box::new((Expr::Ident("b".to_string()), 34..35)), 
+                            }, 32..35),
+                        ],
+                    }, 28..36)
+                }, 
+                24..37
+            ) 
+        );
+
+        assert_eq!(
+            stmts[3],
+            (
+                Stmt::Assignment {
+                    id: "c".to_string(),
+                    value: (Expr::Call {
+                        fun: Box::new((Expr::Ident("foo".to_string()), 42..45)), 
+                        args: vec![
+                            (Expr::Ident("a".to_string()), 46..47),
+                            (Expr::Ident("b".to_string()), 49..50),
+                        ],
+                    }, 42..51)
+                }, 
+                38..52
+            ) 
+        );
+
+    }
     #[test]
     fn test_boolean_exp() {
         let src = "
