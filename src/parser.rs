@@ -1,13 +1,14 @@
 use std::fmt::Display;
 
 use chumsky::{
-    prelude::{filter_map, just, skip_then_retry_until, recursive, Simple},
+    prelude::{filter_map, just, skip_then_retry_until, recursive, Simple, nested_delimiters},
     Parser, select
 };
 
 use crate::lexer::{Token, Span, lexer, Op};
 
 type Spanned<T> = (T, Span);
+type Block = Vec<Spanned<Stmt>>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
@@ -20,6 +21,7 @@ pub enum Stmt {
     Loop(Loop),
     Expr(Spanned<Expr>),
     Return(Spanned<Expr>),
+    Error,
     // Class(ClassDecl),
     // Interface(InterfaceDecl),
 }
@@ -35,7 +37,7 @@ pub enum Decl {
         name: String,
         params: Vec<Spanned<Param>>,
         ret_type: Option<Type>,
-        body: Vec<Stmt>,
+        body: Block,
     },
     // Class {
     //     name: String,
@@ -148,10 +150,18 @@ struct Param {
     pub name: String,
     pub type_: Type,
 }
-#[derive(Debug, Clone, PartialEq)]
-pub struct Block {
-    pub stmts: Vec<Stmt>,
+
+struct Cond {
+    if_: Spanned<Expr>,
+    then: Block,
+    elif: Option<Box<Self>>,
+    else_: Option<Block>,
 }
+
+// #[derive(Debug, Clone, PartialEq)]
+// pub struct Block {
+//     pub stmts: Vec<Stmt>,
+// }
 
 // pub struct ClassDecl {
 //     pub name: String,
@@ -272,8 +282,6 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
                     }, span)
                 }
             );
-
-
             
         let op = filter_map( |span, tok| match tok {
                 Token::Op(Op::Eq) => Ok(BinOp::Eq),
@@ -342,78 +350,75 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
             .delimited_by(just(Token::Ctrl('[')), just(Token::Ctrl(']')))
             .map(|t| Type::Array(Box::new(t)));
 
-        // let tuple = type_.clone()
-        //     .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')')));
-
         simple
             .or(array)
-            // .or(tuple)
-            // .map_with_span(|t, span| (t, span))
     });
     
-    // A var with type
+    // A variable with type
     let var = ident
         .clone()
         .then_ignore(just(Token::Ctrl(':')))
         .then(type_.clone());
 
-    // A let expression
-    let let_decl = just(Token::Let)
-        .ignore_then(var.clone());
-        
-    let assign_rhs = just(Token::Op(Op::Assign))
-        .ignore_then(expr.clone());
-
-    let let_assigned = let_decl.clone()
-        .then(assign_rhs.clone());
-
-    let let_ = let_assigned
+    // A let expression (with optional initialization)
+    let let_ = just(Token::Let)
+        .ignore_then(var.clone())
+        .then(just(Token::Op(Op::Assign))
+            .ignore_then(expr.clone())
+            .or_not())
         .map(|((id, type_), value)| 
-            Stmt::Decl(Decl::Let { name: id, type_, value: Some(value) }))
-        .or(let_decl
-            .map(|(id, type_)| 
-                Stmt::Decl(Decl::Let { name: id, type_, value: None })));
+            Stmt::Decl(Decl::Let { name: id, type_, value }));
 
+    // An assignment
     let assign = ident
-        .then(assign_rhs.clone())
+        .then(just(Token::Op(Op::Assign))
+            .ignore_then(expr.clone()))
         .map(|(id, value)| 
             Stmt::Assign { id, value });
 
-
+    // A return statement
     let return_ = just(Token::Return)
         .ignore_then(expr.clone())
         .map(|value| Stmt::Return(value));
 
+    // Parameters used in function declarations
     let params = var
         .clone()
         .map_with_span(|(name, type_), span| (Param {name, type_}, span))
         .separated_by(just(Token::Ctrl(',')));
 
-    let stmt = recursive(|stmt| {
+    // A block is a collection of statements
+    let block = recursive(|block| {
 
+        // A function declaration
         let fun = just(Token::Fun)
             .ignore_then(ident)
             .then(params
                 .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')'))))
             .then(just(Token::Ctrl(':')).ignore_then(type_.clone()).or_not())
-            .then(stmt.repeated()
+            .then(block
                 .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}'))))
+            // .recover_with(nested_delimiters(
+            //     Token::Ctrl('{'), 
+            //     Token::Ctrl('}'), 
+            //     [], 
+            //     |span| (Stmt::Error, span)))
             .map(|(((name, params), ret_type), body)| 
                 Stmt::Decl(Decl::Fun { name, params, ret_type, body }));
 
-        let decl = let_
-            .or(fun);
-
-        decl
+        // All possible statements
+        let stmt = let_
             .or(assign)
             .or(return_)
             .then_ignore(just(Token::Ctrl(';')))
+            .or(fun)
+            .map_with_span(|stmt, span: Span| (stmt, span));
+            
+        stmt.repeated()
 
     });
 
-    stmt.recover_with(skip_then_retry_until([]))
-        .map_with_span(|tok, span: Span| (tok, span))
-        .repeated()
+    block
 
 }
 
@@ -527,7 +532,13 @@ let f: [int];
     #[test]
     fn test_fun_decl() {
         let src = "
-fun foo(): int {     return 1; }; fun bar(a: int, b: float): float {     return a + b; }; fun baz(a: int, b: float) { };";
+fun foo(): int {
+    return 1;
+}
+fun bar(a: int, b: float): float {
+    return a + b;
+}
+fun baz(a: int, b: float) { }";
 
         let stmts = parse_from(src);
 
@@ -539,10 +550,10 @@ fun foo(): int {     return 1; }; fun bar(a: int, b: float): float {     return 
                     params: vec![],
                     ret_type: Some(Type::Int), 
                     body: vec![
-                        Stmt::Return((Expr::Constant(Literal::Int(1)), 29..30))
+                        (Stmt::Return((Expr::Constant(Literal::Int(1)), 29..30)), 22..31)
                     ],
                 }),
-                1..34
+                1..33
             ) 
         );
 
@@ -556,22 +567,22 @@ fun foo(): int {     return 1; }; fun bar(a: int, b: float): float {     return 
                         (Param {
                             name: "a".to_string(),
                             type_: Type::Int,
-                        }, 43..49),
+                        }, 42..48),
                         (Param {
                             name: "b".to_string(),
                             type_: Type::Float,
-                        }, 51..59),
+                        }, 50..58),
                     ],
                     ret_type: Some(Type::Float), 
                     body: vec![
-                        Stmt::Return((Expr::Binary {
-                            lhs: Box::new((Expr::Ident("a".to_string()), 81..82)),
+                        (Stmt::Return((Expr::Binary {
+                            lhs: Box::new((Expr::Ident("a".to_string()), 80..81)),
                             op: BinOp::Add,
-                            rhs: Box::new((Expr::Ident("b".to_string()), 85..86))
-                        }, 81..86)),
+                            rhs: Box::new((Expr::Ident("b".to_string()), 84..85))
+                        }, 80..85)), 73..86),
                     ],
                 }),
-                35..90
+                34..88
             ) 
         );
 
@@ -584,16 +595,16 @@ fun foo(): int {     return 1; }; fun bar(a: int, b: float): float {     return 
                         (Param {
                             name: "a".to_string(),
                             type_: Type::Int,
-                        }, 99..105),
+                        }, 97..103),
                         (Param {
                             name: "b".to_string(),
                             type_: Type::Float,
-                        }, 107..115),
+                        }, 105..113),
                     ],
                     ret_type: None, 
                     body: vec![],
                 }),
-                91..121
+                89..118
             ) 
         );
     }
@@ -616,6 +627,20 @@ class Baz implements Bal {
         return 2;
     }
 }";
+
+        todo!();
+    }
+
+    #[test]
+    fn interface_decl() {
+        let src = "
+interface Foo {
+    fun foo();
+}
+interface Baz {
+    fun faz(a: int, s: string);
+}
+";
 
         todo!();
     }
