@@ -406,17 +406,15 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
             //     |span| (Stmt::Error, span)))
             .map(|(((name, params), ret_type), body)| 
                 Stmt::Decl(Decl::Fun { name, params, ret_type, body }));
-        
-        let elif = just(Token::Else).ignore_then(just(Token::If))
-            .ignore_then(expr.clone());
 
         // A conditional statement
         let if_ = just(Token::If)
             .ignore_then(expr.clone())
             .then(block.clone())
-            .then(elif
+            .then(just(Token::Else)
+                .ignore_then(just(Token::If))
+                .ignore_then(expr.clone())
                 .then(block.clone())
-                // .map(|(expr, then)| (expr, then))
                 .repeated())
             .then(just(Token::Else)
                 .ignore_then(block.clone())
@@ -652,7 +650,7 @@ class Baz implements Bal {
     }
 
     #[test]
-    fn interface_decl() {
+    fn test_interface_decl() {
         let src = "
 interface Foo {
     fun foo();
@@ -661,27 +659,6 @@ interface Baz {
     fun faz(a: int, s: string);
 }
 ";
-
-        todo!();
-    }
-
-    #[test]
-    fn test_block() {
-        let src = "
-{
-    let a: int = 1;
-    let b: int = 2;
-    return a + b;
-}
-
-{
-    let a: int = 1 + 2;
-    a
-}
-{
-    let a: int = 10;
-    let b: int = 20;
-    ";
 
         todo!();
     }
