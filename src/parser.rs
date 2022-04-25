@@ -17,7 +17,12 @@ pub enum Stmt {
         id: String, 
         value: Spanned<Expr>,
     },
-    // Condition(Spanned<Cond>),
+    Cond {
+        if_: Spanned<Expr>,
+        then: Block,
+        elif: Vec<(Spanned<Expr>, Block)>,
+        else_: Option<Block>,
+    },
     Loop(Loop),
     Expr(Spanned<Expr>),
     Return(Spanned<Expr>),
@@ -151,12 +156,6 @@ struct Param {
     pub type_: Type,
 }
 
-struct Cond {
-    if_: Spanned<Expr>,
-    then: Block,
-    elif: Option<Box<Self>>,
-    else_: Option<Block>,
-}
 
 // #[derive(Debug, Clone, PartialEq)]
 // pub struct Block {
@@ -390,14 +389,16 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
     // A block is a collection of statements
     let block = recursive(|block| {
 
+        let block = block
+            .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}')));    
+
         // A function declaration
         let fun = just(Token::Fun)
             .ignore_then(ident)
             .then(params
                 .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')'))))
             .then(just(Token::Ctrl(':')).ignore_then(type_.clone()).or_not())
-            .then(block
-                .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}'))))
+            .then(block.clone())
             // .recover_with(nested_delimiters(
             //     Token::Ctrl('{'), 
             //     Token::Ctrl('}'), 
@@ -405,6 +406,23 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
             //     |span| (Stmt::Error, span)))
             .map(|(((name, params), ret_type), body)| 
                 Stmt::Decl(Decl::Fun { name, params, ret_type, body }));
+        
+        let elif = just(Token::Else).ignore_then(just(Token::If))
+            .ignore_then(expr.clone());
+
+        // A conditional statement
+        let if_ = just(Token::If)
+            .ignore_then(expr.clone())
+            .then(block.clone())
+            .then(elif
+                .then(block.clone())
+                // .map(|(expr, then)| (expr, then))
+                .repeated())
+            .then(just(Token::Else)
+                .ignore_then(block.clone())
+                .or_not())
+            .map(|(((if_, then), elif), else_)|
+                Stmt::Cond { if_, then, elif, else_ });
 
         // All possible statements
         let stmt = let_
@@ -412,6 +430,7 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
             .or(return_)
             .then_ignore(just(Token::Ctrl(';')))
             .or(fun)
+            .or(if_)
             .map_with_span(|stmt, span: Span| (stmt, span));
             
         stmt.repeated()
@@ -538,7 +557,8 @@ fun foo(): int {
 fun bar(a: int, b: float): float {
     return a + b;
 }
-fun baz(a: int, b: float) { }";
+fun baz(a: int, b: float) { }
+";
 
         let stmts = parse_from(src);
 
@@ -669,7 +689,7 @@ interface Baz {
     #[test]
     fn test_cond() {
         let src = "
-if (a == 1) {
+if a == 1 {
     return 1;
 }
 
@@ -686,7 +706,80 @@ if (a == 1) {
 } else {
     return 3;
 }";
-        todo!();
+
+
+        let stmts = parse_from(src);
+        
+        assert_eq!(
+            stmts[0],
+            (
+                Stmt::Cond {
+                    if_: (Expr::Binary {
+                        lhs: Box::new((Expr::Ident("a".to_string()), 4..5)),
+                        op: BinOp::Eq,
+                        rhs: Box::new((Expr::Constant(Literal::Int(1)), 9..10)),
+                    }, 4..10),
+                    then: vec![
+                        (Stmt::Return((Expr::Constant(Literal::Int(1)), 24..25)), 17..26)
+                    ],
+                    elif: vec![],
+                    else_: None,
+                },
+                1..28   
+            )
+        );
+
+        assert_eq!(
+            stmts[1],
+            (
+                Stmt::Cond {
+                    if_: (Expr::Binary {
+                        lhs: Box::new((Expr::Ident("a".to_string()), 34..35)),
+                        op: BinOp::Eq,
+                        rhs: Box::new((Expr::Constant(Literal::Int(1)), 39..40)),
+                    }, 33..41),
+                    then: vec![
+                        (Stmt::Return((Expr::Constant(Literal::Int(1)), 55..56)), 48..57)
+                    ],
+                    elif: vec![],
+                    else_: Some(vec![
+                        (Stmt::Return((Expr::Constant(Literal::Int(2)), 78..79)), 71..80)
+                    ]),
+                },
+                30..82
+            )
+        );
+
+        assert_eq!(
+            stmts[2],
+            (
+                Stmt::Cond {
+                    if_: (Expr::Binary {
+                        lhs: Box::new((Expr::Ident("a".to_string()), 88..89)),
+                        op: BinOp::Eq,
+                        rhs: Box::new((Expr::Constant(Literal::Int(1)), 93..94)),
+                    }, 87..95),
+                    then: vec![
+                        (Stmt::Return((Expr::Constant(Literal::Int(1)), 109..110)), 102..111)
+                    ],
+                    elif: vec![
+                        ((Expr::Binary {
+                                lhs: Box::new((Expr::Ident("a".to_string()), 123..124)),
+                                op: BinOp::Eq,
+                                rhs: Box::new((Expr::Constant(Literal::Int(2)), 128..129)),
+                            }, 122..130), 
+                            vec![
+                                (Stmt::Return((Expr::Constant(Literal::Int(2)), 144..145)), 137..146)
+                            ],                         
+                        ),
+                    ],
+                    else_: Some(vec![
+                        (Stmt::Return((Expr::Constant(Literal::Int(3)), 167..168)), 160..169),
+                    ]),
+                },
+                84..171
+            )
+        );
     }
 
     #[test]
