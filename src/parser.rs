@@ -38,43 +38,48 @@ pub enum Decl {
         type_: Type,
         value: Option<Spanned<Expr>>,
     },
-    Fun {
+    Fun(Fun),
+    Class {
         name: String,
-        params: Vec<Spanned<Param>>,
-        ret_type: Option<Type>,
-        body: Block,
+        inherits: Option<String>,
+        implements: Option<String>,
+        has: Vec<Var>,
+        does: Vec<Fun>,
     },
-    // Class {
-    //     name: String,
-    //     parent: Option<String>,
-    //     interface: Option<String>,
-    //     body: Block,
-    // },
-    // Interface(InterfaceDecl),
+    Interface {
+        name: String,
+        should_do: Vec<FunSignature>,
+    },
 }
-// class Point {
-//     + public_field1: int;
-//     # protected_field: int;
-//     - private_field: int;
-//     static static_field: int;
 
-//     fun init(): Point {
-//         @.field1 = 0;
-//         @.field2 = 0;
-//         return @;
-//     }
-// }
-// let a: Point = Point.new();
-// 
+#[derive(Debug, Clone, PartialEq)]
+struct Var {
+    pub name: String,
+    pub type_: Type,
+}
 
-// pub enum Cond {
-//     If(Spanned<Expr>, Vec<Stmt>),
-//     IfElse(Expr, Vec<Stmt>, Vec<Stmt>),
-// }
+#[derive(Debug, Clone, PartialEq)]
+struct Fun {
+    name: String,
+    params: Vec<Spanned<Var>>,
+    ret_type: Option<Type>,
+    body: Block,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct FunSignature {
+    name: String,
+    params: Vec<Spanned<Var>>,
+    ret_type: Option<Type>,
+}
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Loop {
-    While(Spanned<Expr>, Vec<Stmt>),
+    While {
+        cond: Spanned<Expr>,
+        body: Block,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -147,33 +152,8 @@ pub enum Type {
     String,
 
     //// Custom
-    Ident(String),
+    Custom(String),
 }
-
-#[derive(Debug, Clone, PartialEq)]
-struct Param {
-    pub name: String,
-    pub type_: Type,
-}
-
-
-// #[derive(Debug, Clone, PartialEq)]
-// pub struct Block {
-//     pub stmts: Vec<Stmt>,
-// }
-
-// pub struct ClassDecl {
-//     pub name: String,
-//     pub parent: Option<String>,
-//     pub interface: Option<String>,
-//     pub vars: Vec<(Var, Visibility)>,
-//     pub methods: Vec<(Method, Visibility)>,
-// }
-
-// pub struct InterfaceDecl {
-//     pub name: String,
-//     pub body: Block,
-// }
 
 
 fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
@@ -341,7 +321,7 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
                 "bool" => Type::Bool,
                 "char" => Type::Char,
                 "string" => Type::String,
-                _ => Type::Ident(t)
+                _ => Type::Custom(t)
             }
           }.labelled("type");
         
@@ -383,7 +363,7 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
     // Parameters used in function declarations
     let params = var
         .clone()
-        .map_with_span(|(name, type_), span| (Param {name, type_}, span))
+        .map_with_span(|(name, type_), span| (Var {name, type_}, span))
         .separated_by(just(Token::Ctrl(',')));
 
     // A block is a collection of statements
@@ -391,6 +371,12 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
 
         let block = block
             .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}')));    
+
+        // A while Loop
+        let while_ = just(Token::While)
+            .ignore_then(expr.clone())
+            .then(block.clone())
+            .map(|(cond, body)| Stmt::Loop(Loop::While { cond, body }));
 
         // A function declaration
         let fun = just(Token::Fun)
@@ -405,7 +391,7 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
             //     [], 
             //     |span| (Stmt::Error, span)))
             .map(|(((name, params), ret_type), body)| 
-                Stmt::Decl(Decl::Fun { name, params, ret_type, body }));
+                Stmt::Decl(Decl::Fun(Fun { name, params, ret_type, body })));
 
         // A conditional statement
         let if_ = just(Token::If)
@@ -429,6 +415,7 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
             .then_ignore(just(Token::Ctrl(';')))
             .or(fun)
             .or(if_)
+            .or(while_)
             .map_with_span(|stmt, span: Span| (stmt, span));
             
         stmt.repeated()
@@ -563,14 +550,14 @@ fun baz(a: int, b: float) { }
         assert_eq!(
             stmts[0],
             (
-                Stmt::Decl(Decl::Fun {
+                Stmt::Decl(Decl::Fun(Fun {
                     name: "foo".to_string(),
                     params: vec![],
                     ret_type: Some(Type::Int), 
                     body: vec![
                         (Stmt::Return((Expr::Constant(Literal::Int(1)), 29..30)), 22..31)
                     ],
-                }),
+                })),
                 1..33
             ) 
         );
@@ -579,14 +566,14 @@ fun baz(a: int, b: float) { }
         assert_eq!(
             stmts[1],
             (
-                Stmt::Decl(Decl::Fun {
+                Stmt::Decl(Decl::Fun(Fun {
                     name: "bar".to_string(),
                     params: vec![
-                        (Param {
+                        (Var {
                             name: "a".to_string(),
                             type_: Type::Int,
                         }, 42..48),
-                        (Param {
+                        (Var {
                             name: "b".to_string(),
                             type_: Type::Float,
                         }, 50..58),
@@ -599,7 +586,7 @@ fun baz(a: int, b: float) { }
                             rhs: Box::new((Expr::Ident("b".to_string()), 84..85))
                         }, 80..85)), 73..86),
                     ],
-                }),
+                })),
                 34..88
             ) 
         );
@@ -607,21 +594,21 @@ fun baz(a: int, b: float) { }
         assert_eq!(
             stmts[2],
             (
-                Stmt::Decl(Decl::Fun {
+                Stmt::Decl(Decl::Fun( Fun {
                     name: "baz".to_string(),
                     params: vec![
-                        (Param {
+                        (Var {
                             name: "a".to_string(),
                             type_: Type::Int,
                         }, 97..103),
-                        (Param {
+                        (Var {
                             name: "b".to_string(),
                             type_: Type::Float,
                         }, 105..113),
                     ],
                     ret_type: None, 
                     body: vec![],
-                }),
+                })),
                 89..118
             ) 
         );
@@ -637,11 +624,22 @@ class Foo {
 }
 
 class Bar extends Foo {
-    let a: int = 1;
+    has:
+        a: int;
+        b: float;
+    
+    does:
+        fun new(): this {
+            this.b = 0;
+            return this;
+        }
+        fun gg(): int {
+            return @.a + @.b;
+        }
 }
 
 class Baz implements Bal {
-    fun faz() {
+    fun bal() {
         return 2;
     }
 }";
@@ -760,13 +758,39 @@ if (a == 1) {
     }
 
     #[test]
-    fn test_loop() {
+    fn test_while_loop() {
         let src = "
 let a: int = 0;
 while (a < 10) {
     a = a + 1;
 }";
-        todo!();
+
+        let stmts = parse_from(src);
+
+        assert_eq!(
+            stmts[1],
+            (
+                Stmt::Loop(Loop::While {
+                    cond: (Expr::Binary {
+                        lhs: Box::new((Expr::Ident("a".to_string()), 24..25)),
+                        op: BinOp::Lt,
+                        rhs: Box::new((Expr::Constant(Literal::Int(10)), 28..30)),
+                    }, 23..31),
+                    body: vec![
+                        (Stmt::Assign {
+                            id: "a".to_string(),
+                            value: (Expr::Binary {
+                                lhs: Box::new((Expr::Ident("a".to_string()), 42..43)),
+                                op: BinOp::Add,
+                                rhs: Box::new((Expr::Constant(Literal::Int(1)), 46..47)),
+                            }, 42..47),
+                        }, 38..48),
+                    ],
+                }),
+                17..50
+            )
+        );
+    
     }
     
     #[test]

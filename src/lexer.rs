@@ -57,6 +57,7 @@ pub enum Token {
     For,
     In,
     While,
+    This,
 }
 
 impl Display for Token {
@@ -84,6 +85,7 @@ impl Display for Token {
             Token::For => write!(f, "for"),
             Token::In => write!(f, "in"),
             Token::While => write!(f, "while"),
+            Token::This => write!(f, "this")
         }
     }
 }
@@ -110,6 +112,7 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         "bool" => Token::Type("bool".to_string()),
         "string" => Token::Type("string".to_string()),
         "char" => Token::Type("char".to_string()),
+        "this" => Token::This,
         _ => Token::Ident(s),
     });
 
@@ -235,7 +238,7 @@ let z = x + y;
     #[test]
     fn test_keywords() {
         let src = "
-if else while for in return fun let class interface inherits implements
+if else while for in return fun let class interface inherits implements this
 ";
         let (tokens, errs) = lexer().parse_recovery(src);
 
@@ -256,8 +259,9 @@ if else while for in return fun let class interface inherits implements
         assert_eq!(tokens[9], (Token::Interface, 43..52));
         assert_eq!(tokens[10], (Token::Inherits, 53..61));
         assert_eq!(tokens[11], (Token::Implements, 62..72));
+        assert_eq!(tokens[12], (Token::This, 73..77));
 
-        assert_eq!(tokens.len(), 12);
+        assert_eq!(tokens.len(), 13);
     }
 
     #[test]
