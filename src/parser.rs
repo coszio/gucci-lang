@@ -5,7 +5,7 @@ use chumsky::{
     Parser, select
 };
 
-use crate::lexer::{Token, Span, lexer, Op};
+use crate::lexer::{Token, Span, Op};
 
 type Spanned<T> = (T, Span);
 type Block = Vec<Spanned<Stmt>>;
@@ -27,8 +27,6 @@ pub enum Stmt {
     Expr(Spanned<Expr>),
     Return(Spanned<Expr>),
     Error,
-    // Class(ClassDecl),
-    // Interface(InterfaceDecl),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -65,7 +63,7 @@ struct Var {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct Fun {
+pub struct Fun {
     name: String,
     params: Vec<Spanned<Var>>,
     ret_type: Option<Type>,
@@ -90,6 +88,7 @@ pub enum Loop {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    Error,
     Call {
         fun: Box<Spanned<Self>>, 
         args: Vec<Spanned<Self>>,
@@ -235,6 +234,16 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
             .or(expr
                 .clone()
                 .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')')))
+                // Attempt to recover anything that looks like a parenthesised expression but contains errors
+                .recover_with(nested_delimiters(
+                    Token::Ctrl('('),
+                    Token::Ctrl(')'),
+                    [
+                        (Token::Ctrl('['), Token::Ctrl(']')),
+                        (Token::Ctrl('{'), Token::Ctrl('}')),
+                    ],
+                    |span| (Expr::Error, span),
+                ))
                 .map_with_span(|(expr, _), span| (expr, span)));
 
         let args = items
@@ -428,7 +437,17 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
     let block = recursive(|block| {
 
         let block = block
-            .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}')));    
+            .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}')))
+            // Attempt to recover anything that looks like a block but contains errors
+            .recover_with(nested_delimiters(
+                Token::Ctrl('{'),
+                Token::Ctrl('}'),
+                [
+                    (Token::Ctrl('('), Token::Ctrl(')')),
+                    (Token::Ctrl('['), Token::Ctrl(']')),
+                ],
+                |span| vec![(Stmt::Error, span)],
+            ));    
 
         // A while Loop
         let while_ = just(Token::While)
@@ -543,6 +562,8 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
 mod tests {
 
     use chumsky::Stream;
+
+    use crate::lexer::lexer;
 
     use super::*;
 
