@@ -1,14 +1,14 @@
 use std::fmt::Display;
 
 use chumsky::{
-    prelude::{filter, just, one_of, skip_then_retry_until, take_until, Simple, choice},
+    prelude::{filter, just, one_of, skip_then_retry_until, take_until, Simple},
     text::{self, TextParser},
     Parser,
 };
 
 pub type Span = std::ops::Range<usize>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Op {
     Add,
     Sub,
@@ -33,7 +33,7 @@ impl Display for Op {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Void,
     Ident(String),
@@ -44,7 +44,6 @@ pub enum Token {
     Str(String),
     Char(char),
     Bool(bool),
-    Type(String),
     Fun,
     Class,
     Interface,
@@ -57,9 +56,6 @@ pub enum Token {
     For,
     In,
     While,
-    This,
-    Has,
-    Does,
 }
 
 impl Display for Token {
@@ -74,7 +70,6 @@ impl Display for Token {
             Token::Bool(b) => write!(f, "{}", b),
             Token::Ctrl(ctrl) => write!(f, "{}", ctrl),
             Token::Op(op) => write!(f, "{}", op),
-            Token::Type(t) => write!(f, "{}", t),
             Token::Fun => write!(f, "function"),
             Token::Class => write!(f, "class"),
             Token::Interface => write!(f, "interface"),
@@ -87,14 +82,11 @@ impl Display for Token {
             Token::For => write!(f, "for"),
             Token::In => write!(f, "in"),
             Token::While => write!(f, "while"),
-            Token::This => write!(f, "this"),
-            Token::Has => write!(f, "has"),
-            Token::Does => write!(f, "does"),
         }
     }
 }
 
-pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
+fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
     let keyword_or_id = text::ident().map(|s: String| match s.as_str() {
         "void" => Token::Void,
         "fun" => Token::Fun,
@@ -109,16 +101,6 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         "for" => Token::For,
         "in" => Token::In,
         "while" => Token::While,
-        "true" => Token::Bool(true),
-        "false" => Token::Bool(false),
-        "int" => Token::Type("int".to_string()),
-        "float" => Token::Type("float".to_string()),
-        "bool" => Token::Type("bool".to_string()),
-        "string" => Token::Type("string".to_string()),
-        "char" => Token::Type("char".to_string()),
-        "this" => Token::This,
-        "has" => Token::Has,
-        "does" => Token::Does,
         _ => Token::Ident(s),
     });
 
@@ -143,36 +125,33 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
 
     let comment = just("//").then(take_until(just('\n'))).padded();
 
-    let op = choice((
-        just("<=").to(Token::Op(Op::Lte)),
-        just(">=").to(Token::Op(Op::Gte)),
-        just("==").to(Token::Op(Op::Eq)),
-        just("!=").to(Token::Op(Op::Ne)),
-        just("&&").to(Token::Op(Op::And)),
-        just("||").to(Token::Op(Op::Or)),
-        just("+").to(Token::Op(Op::Add)),
-        just("-").to(Token::Op(Op::Sub)),
-        just("*").to(Token::Op(Op::Mul)),
-        just("/").to(Token::Op(Op::Div)),
-        just(".").to(Token::Op(Op::Dot)),
-        just("<").to(Token::Op(Op::Lt)),
-        just(">").to(Token::Op(Op::Gt)),
-        just("!").to(Token::Op(Op::Not)),
-        just("=").to(Token::Op(Op::Assign)),
-    ));
+    let op = just("<=")
+        .to(Token::Op(Op::Lte))
+        .or(just(">=").to(Token::Op(Op::Gte)))
+        .or(just("==").to(Token::Op(Op::Eq)))
+        .or(just("!=").to(Token::Op(Op::Ne)))
+        .or(just("&&").to(Token::Op(Op::And)))
+        .or(just("||").to(Token::Op(Op::Or)))
+        .or(just("+").to(Token::Op(Op::Add)))
+        .or(just("-").to(Token::Op(Op::Sub)))
+        .or(just("*").to(Token::Op(Op::Mul)))
+        .or(just("/").to(Token::Op(Op::Div)))
+        .or(just(".").to(Token::Op(Op::Dot)))
+        .or(just("<").to(Token::Op(Op::Lt)))
+        .or(just(">").to(Token::Op(Op::Gt)))
+        .or(just("!").to(Token::Op(Op::Not)))
+        .or(just("=").to(Token::Op(Op::Assign)));
 
-    let token = choice((
-            float_,
-            int_,
-            str_,
-            char_,
-            ctrl,
-            op,
-            keyword_or_id,
-        ))
+    let token = float_
+        .or(int_)
+        .or(str_)
+        .or(char_)
+        .or(ctrl)
+        .or(op)
+        .or(keyword_or_id)
         .recover_with(skip_then_retry_until([]))
-        .map_with_span(|tok, span| (tok, span))
         .padded_by(comment.repeated())
+        .map_with_span(|tok, span| (tok, span))
         .padded()
         .repeated();
 
@@ -247,7 +226,7 @@ let z = x + y;
     #[test]
     fn test_keywords() {
         let src = "
-if else while for in return fun let class interface inherits implements this does has
+if else while for in return fun let class interface inherits implements
 ";
         let (tokens, errs) = lexer().parse_recovery(src);
 
@@ -268,11 +247,8 @@ if else while for in return fun let class interface inherits implements this doe
         assert_eq!(tokens[9], (Token::Interface, 43..52));
         assert_eq!(tokens[10], (Token::Inherits, 53..61));
         assert_eq!(tokens[11], (Token::Implements, 62..72));
-        assert_eq!(tokens[12], (Token::This, 73..77));
-        assert_eq!(tokens[13], (Token::Does, 78..82));
-        assert_eq!(tokens[14], (Token::Has, 83..86));
 
-        assert_eq!(tokens.len(), 15);
+        assert_eq!(tokens.len(), 12);
     }
 
     #[test]
@@ -331,7 +307,7 @@ normal __dunder__ camelCase PascalCase snake_case CONSTANT_CASE numbered123 _123
     #[test]
     fn test_int() {
         let src = "
-2 35 254 1000 45000 0
+2 35 254 1000 45000
         ";
         let (tokens, errs) = lexer().parse_recovery(src);
 
@@ -345,9 +321,8 @@ normal __dunder__ camelCase PascalCase snake_case CONSTANT_CASE numbered123 _123
         assert_eq!(tokens[2], (Token::Int("254".to_string()), 6..9));
         assert_eq!(tokens[3], (Token::Int("1000".to_string()), 10..14));
         assert_eq!(tokens[4], (Token::Int("45000".to_string()), 15..20));
-        assert_eq!(tokens[5], (Token::Int("0".to_string()), 21..22));
 
-        assert_eq!(tokens.len(), 6);
+        assert_eq!(tokens.len(), 5);
     }
     
     #[test]
@@ -368,23 +343,5 @@ normal __dunder__ camelCase PascalCase snake_case CONSTANT_CASE numbered123 _123
         assert_eq!(tokens[3], (Token::Float("0.1".to_string()), 19..22));
 
         assert_eq!(tokens.len(), 4);
-    }
-
-    #[test]
-    fn test_bool() {
-        let src = "
-true false
-        ";
-        let (tokens, errs) = lexer().parse_recovery(src);
-
-        let tokens = tokens.unwrap();
-
-        println!("{:?}", errs);
-        assert!(errs.is_empty());
-
-        assert_eq!(tokens[0], (Token::Bool(true), 1..5));
-        assert_eq!(tokens[1], (Token::Bool(false), 6..11));
-
-        assert_eq!(tokens.len(), 2);
     }
 }
