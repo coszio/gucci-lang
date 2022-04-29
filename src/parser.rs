@@ -452,26 +452,6 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
         let does = just(Token::Does)
             .ignore_then(just(Token::Ctrl(':')))
             .ignore_then(fun_decl.clone()
-                // .validate(|stmt, span, emit| {
-                //     if let Stmt::Decl(Decl::Fun(fun)) = stmt {       
-
-                //         let valid = fun.body.iter().all(|(stmt, _)| match stmt {
-                //             Stmt::Decl(a) => match a {
-                //                     Decl::Class { name: _, inherits: _, implements: _, has: _, does: _ } => false,
-                //                     Decl::Interface { name: _, should_do: _ } => false,
-                //                     _ => true
-                //                 },
-                //             _ => true
-                //         });
-                //         if !valid {
-                //             emit(Simple::custom(span, "Classes do not contain other classes or interfaces"));
-                //         }
-                //         fun
-                //     }
-                //     else {
-                //         panic!("Expected function declaration");
-                //     }
-                // })
                 .map_with_span(|fun, span| (fun, span))
                 .repeated())
             .or_not()
@@ -731,12 +711,7 @@ class Point inherits Foo {
             return this;
         }
 }
-
-class Baz implements Bal {
-    fun bal() {
-        return 2;
-    }
-}";
+";
 
         
         let stmts = parse_from(src);
