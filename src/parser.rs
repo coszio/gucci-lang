@@ -54,7 +54,7 @@ pub enum Decl {
     },
     Interface {
         name: String,
-        should_do: Vec<FunSignature>,
+        should_do: Vec<Spanned<FunSignature>>,
     },
 }
 
@@ -412,13 +412,24 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
             .map(|(cond, body)| Stmt::Loop(Loop::While { cond, body }));
 
         // A function declaration
-        let fun_decl = just(Token::Fun)
+        let fun_signature = just(Token::Fun)
             .ignore_then(ident.clone())
             .then(params
                 .delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')'))))
             .then(just(Token::Ctrl(':')).ignore_then(type_.clone()).or_not())
+            .map(|((name, params), ret_type)| 
+                FunSignature { name, params, ret_type });
+
+        let fun_decl = fun_signature
+            .clone()
             .then(block.clone())
-            .map(|(((name, params), ret_type), body)| Fun { name, params, ret_type, body });
+            .map(|(signature, body)| 
+                Fun { 
+                    name: signature.name, 
+                    params: signature.params, 
+                    ret_type: signature.ret_type, 
+                    body 
+                });
 
         let fun = fun_decl.clone()
             .map(|fun| Stmt::Decl(Decl::Fun(fun)));
@@ -467,6 +478,16 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
             .map(|(((name, inherits), implements), (has, does))| 
                 Stmt::Decl(Decl::Class { name, inherits, implements, has, does }));
 
+        let interface = just(Token::Interface)
+            .ignore_then(ident.clone())
+            .then(fun_signature
+                .then_ignore(just(Token::Ctrl(';')))
+                .map_with_span(|fun_sig, span| (fun_sig, span))
+                .repeated()
+                .delimited_by(just(Token::Ctrl('{')), just(Token::Ctrl('}'))))
+            .map(|(name, should_do)| 
+                Stmt::Decl(Decl::Interface { name, should_do }));
+
 
         // All possible statements
         let stmt = choice((
@@ -480,6 +501,7 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
                 if_,
                 while_,
                 class,
+                interface,
             )))
             .map_with_span(|stmt, span: Span| (stmt, span));
             // .recover_with(skip_then_retry_until([]))
@@ -814,7 +836,58 @@ interface Baz {
 }
 ";
 
-        todo!();
+        let stmts = parse_from(src);
+
+        println!("{:?}", stmts);
+
+        assert_eq!(
+            stmts[0],
+            (
+                Stmt::Decl(Decl::Interface {
+                    name: "Foo".to_string(),
+                    should_do: vec![
+                        (
+                            FunSignature {
+                                name: "foo".to_string(),
+                                params: vec![],
+                                ret_type: None, 
+                            },
+                            21..31
+                        )
+                    ],                    
+                }),
+                1..33
+            )    
+        );
+
+        assert_eq!(
+            stmts[1],
+            (
+                Stmt::Decl(Decl::Interface {
+                    name: "Baz".to_string(),
+                    should_do: vec![
+                        (
+                            FunSignature {
+                                name: "faz".to_string(),
+                                params: vec![
+                                    (Var {
+                                        name: "a".to_string(),
+                                        type_: Type::Int,
+                                    }, 62..68),
+                                    (Var {
+                                        name: "s".to_string(),
+                                        type_: Type::String,
+                                    }, 70..79),
+                                ],
+                                ret_type: None, 
+                            },
+                            54..81
+                        )
+                    ],                    
+                }),
+                34..83
+            )    
+        );
     }
 
     #[test]
