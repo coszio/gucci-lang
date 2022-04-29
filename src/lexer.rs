@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use chumsky::{
-    prelude::{filter, just, one_of, skip_then_retry_until, take_until, Simple},
+    prelude::{filter, just, one_of, skip_then_retry_until, take_until, Simple, choice},
     text::{self, TextParser},
     Parser,
 };
@@ -58,6 +58,8 @@ pub enum Token {
     In,
     While,
     This,
+    Has,
+    Does,
 }
 
 impl Display for Token {
@@ -85,7 +87,9 @@ impl Display for Token {
             Token::For => write!(f, "for"),
             Token::In => write!(f, "in"),
             Token::While => write!(f, "while"),
-            Token::This => write!(f, "this")
+            Token::This => write!(f, "this"),
+            Token::Has => write!(f, "has"),
+            Token::Does => write!(f, "does"),
         }
     }
 }
@@ -113,6 +117,8 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
         "string" => Token::Type("string".to_string()),
         "char" => Token::Type("char".to_string()),
         "this" => Token::This,
+        "has" => Token::Has,
+        "does" => Token::Does,
         _ => Token::Ident(s),
     });
 
@@ -137,33 +143,36 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
 
     let comment = just("//").then(take_until(just('\n'))).padded();
 
-    let op = just("<=")
-        .to(Token::Op(Op::Lte))
-        .or(just(">=").to(Token::Op(Op::Gte)))
-        .or(just("==").to(Token::Op(Op::Eq)))
-        .or(just("!=").to(Token::Op(Op::Ne)))
-        .or(just("&&").to(Token::Op(Op::And)))
-        .or(just("||").to(Token::Op(Op::Or)))
-        .or(just("+").to(Token::Op(Op::Add)))
-        .or(just("-").to(Token::Op(Op::Sub)))
-        .or(just("*").to(Token::Op(Op::Mul)))
-        .or(just("/").to(Token::Op(Op::Div)))
-        .or(just(".").to(Token::Op(Op::Dot)))
-        .or(just("<").to(Token::Op(Op::Lt)))
-        .or(just(">").to(Token::Op(Op::Gt)))
-        .or(just("!").to(Token::Op(Op::Not)))
-        .or(just("=").to(Token::Op(Op::Assign)));
+    let op = choice((
+        just("<=").to(Token::Op(Op::Lte)),
+        just(">=").to(Token::Op(Op::Gte)),
+        just("==").to(Token::Op(Op::Eq)),
+        just("!=").to(Token::Op(Op::Ne)),
+        just("&&").to(Token::Op(Op::And)),
+        just("||").to(Token::Op(Op::Or)),
+        just("+").to(Token::Op(Op::Add)),
+        just("-").to(Token::Op(Op::Sub)),
+        just("*").to(Token::Op(Op::Mul)),
+        just("/").to(Token::Op(Op::Div)),
+        just(".").to(Token::Op(Op::Dot)),
+        just("<").to(Token::Op(Op::Lt)),
+        just(">").to(Token::Op(Op::Gt)),
+        just("!").to(Token::Op(Op::Not)),
+        just("=").to(Token::Op(Op::Assign)),
+    ));
 
-    let token = float_
-        .or(int_)
-        .or(str_)
-        .or(char_)
-        .or(ctrl)
-        .or(op)
-        .or(keyword_or_id)
+    let token = choice((
+            float_,
+            int_,
+            str_,
+            char_,
+            ctrl,
+            op,
+            keyword_or_id,
+        ))
         .recover_with(skip_then_retry_until([]))
-        .padded_by(comment.repeated())
         .map_with_span(|tok, span| (tok, span))
+        .padded_by(comment.repeated())
         .padded()
         .repeated();
 
@@ -238,7 +247,7 @@ let z = x + y;
     #[test]
     fn test_keywords() {
         let src = "
-if else while for in return fun let class interface inherits implements this
+if else while for in return fun let class interface inherits implements this does has
 ";
         let (tokens, errs) = lexer().parse_recovery(src);
 
@@ -260,8 +269,10 @@ if else while for in return fun let class interface inherits implements this
         assert_eq!(tokens[10], (Token::Inherits, 53..61));
         assert_eq!(tokens[11], (Token::Implements, 62..72));
         assert_eq!(tokens[12], (Token::This, 73..77));
+        assert_eq!(tokens[13], (Token::Does, 78..82));
+        assert_eq!(tokens[14], (Token::Has, 83..86));
 
-        assert_eq!(tokens.len(), 13);
+        assert_eq!(tokens.len(), 15);
     }
 
     #[test]
