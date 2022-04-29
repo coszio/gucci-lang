@@ -9,7 +9,7 @@ use crate::lexer::{Token, Span, Op};
 
 type Spanned<T> = (T, Span);
 type Block = Vec<Spanned<Stmt>>;
-// type Item = Vec<String>;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     Decl(Decl),
@@ -104,7 +104,6 @@ pub enum Expr {
     },
     Constant(Literal),
     Ident(String),
-    // Field(Field),
     Array(Vec<Spanned<Self>>),
     Parenthesized(Box<Spanned<Self>>),
 }
@@ -158,7 +157,6 @@ pub enum Type {
 
     //// Compound
     Array(Box<Self>),
-    // Tuple(Vec<Box<Self>>),
     String,
 
     //// Self referencing
@@ -177,8 +175,6 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
     let single_field = ident.clone()
         .or(this.clone())
         .map(|name| Field { name, child: None });
-
-    // let field = single_field.or(this);
 
     let field = single_field
         .clone()
@@ -548,7 +544,6 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
                 interface,
             )))
             .map_with_span(|stmt, span: Span| (stmt, span));
-            // .recover_with(skip_then_retry_until([]))
             
         stmt.repeated()
 
