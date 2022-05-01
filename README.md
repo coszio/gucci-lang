@@ -13,7 +13,7 @@ It was made using [chumsky](https://github.com/zesterer/chumsky) and [ariadne](h
 # Implemented features
 
 - [x] Lexical analysis
-- [ ] Syntactic analysis
+- [x] Syntactic analysis
 - [ ] Basic variables semantics: Variables table and functions directory
 - [ ] Basic expression semantics: semantic cube and evaluation
 - [ ] Code generation for conditional statements and loops

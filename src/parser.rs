@@ -159,15 +159,12 @@ pub enum Type {
     Array(Box<Self>),
     String,
 
-    //// Self referencing
-    This,
-
     //// Custom
     Custom(String),
 }
 
 
-fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
+pub fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
     let ident = select! { Token::Ident(name) => name.clone() }.labelled("identifier");
     
     let this = just(Token::This).to("this".to_string());
@@ -191,9 +188,10 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
     
     let expr = recursive(|expr| {
         
-        let ident = ident
-            .clone()
-            .or(this)
+        let ident = choice((
+                ident.clone(),
+                this,
+            ))
             .map(Expr::Ident);
 
         let number = filter_map(|span: Span, tok| {
@@ -223,9 +221,11 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
             .map(Expr::Array)
             .labelled("array");
             
-        let atom = value
-            .or(ident.clone())
-            .or(array)
+        let atom = choice((
+                value,
+                ident.clone(),
+                array,
+             ))
             .map_with_span(|expr, span| (expr, span))
             .or(expr
                 .clone()
@@ -276,10 +276,10 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
                 }, span)
             });
 
-        let op = just(Token::Op(Op::Mul))
-            .to(BinOp::Mul)
-            .or(just(Token::Op(Op::Div))
-                .to(BinOp::Div));
+        let op = choice((
+                just(Token::Op(Op::Mul)).to(BinOp::Mul),
+                just(Token::Op(Op::Div)).to(BinOp::Div),
+        ));
         let product = chain
             .clone()
             .then(op.then(chain).repeated())
@@ -292,23 +292,26 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
                 }, span)
             });
 
-        let op = just(Token::Op(Op::Not)).to(UnOp::Not)
-            .or(just(Token::Op(Op::Sub)).to(UnOp::Neg))
+        let op = choice((
+                just(Token::Op(Op::Not)).to(UnOp::Not),
+                just(Token::Op(Op::Sub)).to(UnOp::Neg),
+            ))
             .map_with_span(|op, span| (op, span));
         let unary = op
+            .repeated()
             .then(product.clone())
-            .map(|(op,a)| {
+            .foldr(|op, a| {
                 let span = op.1.start..a.1.end;
                 (Expr::Unary {
                     op: op.0, 
                     rhs: Box::new(a)
-                }, span)})
-            .or(product.clone());
+                }, span)
+            });
 
-        let op = just(Token::Op(Op::Add))
-            .to(BinOp::Add)
-            .or(just(Token::Op(Op::Sub))
-                .to(BinOp::Sub));
+        let op = choice((
+                just(Token::Op(Op::Add)).to(BinOp::Add),
+                just(Token::Op(Op::Sub)).to(BinOp::Sub),
+        ));
         let sum = unary
             .clone()
             .then(op.then(unary).repeated())
@@ -322,15 +325,14 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
                 }
             );
             
-        let op = filter_map( |span, tok| match tok {
-                Token::Op(Op::Eq) => Ok(BinOp::Eq),
-                Token::Op(Op::Ne) => Ok(BinOp::Ne),
-                Token::Op(Op::Lt) => Ok(BinOp::Lt),
-                Token::Op(Op::Gt) => Ok(BinOp::Gt),
-                Token::Op(Op::Lte) => Ok(BinOp::Lte),
-                Token::Op(Op::Gte) => Ok(BinOp::Gte),
-                _ => Err(Simple::custom(span, "Not a comparison operator")),
-            });
+        let op = choice((
+                just(Token::Op(Op::Eq)).to(BinOp::Eq),
+                just(Token::Op(Op::Ne)).to(BinOp::Ne),
+                just(Token::Op(Op::Lt)).to(BinOp::Lt),
+                just(Token::Op(Op::Gt)).to(BinOp::Gt),
+                just(Token::Op(Op::Lte)).to(BinOp::Lte),
+                just(Token::Op(Op::Gte)).to(BinOp::Gte),
+        ));
         let comparison = sum
             .clone()
             .then(op.then(sum).repeated())
@@ -381,17 +383,21 @@ fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
                 "bool" => Type::Bool,
                 "char" => Type::Char,
                 "string" => Type::String,
-                _ => Type::Custom(t)
+                _ => panic!("unexpected type: {}", t),
             },
-            Token::This => Type::This,
           }.labelled("type");
-        
+
+        let custom = ident.map(Type::Custom).labelled("custom type");
+
         let array = type_.clone()
             .delimited_by(just(Token::Ctrl('[')), just(Token::Ctrl(']')))
             .map(|t| Type::Array(Box::new(t)));
 
-        simple
-            .or(array)
+        choice((
+            simple,
+            custom,
+            array,
+        ))
     });
 
     // A variable with type
@@ -586,9 +592,12 @@ let c: bool;
 let d: char;
 let e: string;
 let f: [int];
+let g: Custom;
 ";
 
         let stmts = parse_from(src);
+
+        println!("{:?}", stmts);
 
         assert_eq!(
             stmts[0],
@@ -659,6 +668,18 @@ let f: [int];
                     value: None
                 }),
                 68..81
+            ) 
+        );
+
+        assert_eq!(
+            stmts[6],
+            (
+                Stmt::Decl(Decl::Let {
+                    name: "g".to_string(),
+                    type_: Type::Custom("Custom".to_string()),
+                    value: None
+                }),
+                82..96
             ) 
         );
     }
@@ -762,12 +783,14 @@ class Point inherits Foo {
         y: float;
     
     does:
-        fun new(): this {
+        fun new(): Point {
             this.a = 0.0;
             this.b = 0.0;
             return this;
         }
 }
+
+let a: int = 0;
 ";
 
         
@@ -823,7 +846,7 @@ class Point inherits Foo {
                             Fun {
                                 name: "new".to_string(),
                                 params: vec![],
-                                ret_type: Some(Type::This), 
+                                ret_type: Some(Type::Custom("Point".to_string())), 
                                 body: vec![
                                     (Stmt::Assign {
                                         to: Field { 
@@ -833,8 +856,8 @@ class Point inherits Foo {
                                                 child: None
                                             })),
                                         },
-                                        value: (Expr::Constant(Literal::Float(0.0)), 217..220),
-                                    }, 208..221),
+                                        value: (Expr::Constant(Literal::Float(0.0)), 218..221),
+                                    }, 209..222),
                                     (Stmt::Assign {
                                         to: Field { 
                                             name: "this".to_string(),
@@ -843,16 +866,16 @@ class Point inherits Foo {
                                                 child: None
                                             })),
                                         },
-                                        value: (Expr::Constant(Literal::Float(0.0)), 243..246),
-                                    }, 234..247),
-                                    (Stmt::Return((Expr::Ident( "this".to_string()), 267..271)), 260..272),
+                                        value: (Expr::Constant(Literal::Float(0.0)), 244..247),
+                                    }, 235..248),
+                                    (Stmt::Return((Expr::Ident( "this".to_string()), 268..272)), 261..273),
                                 ],
                             },
-                            178..282
+                            178..283
                         )
                     ],                    
                 }),
-                83..284
+                83..285
             )    
         );
     }
