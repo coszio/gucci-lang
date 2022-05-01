@@ -387,4 +387,20 @@ true false
 
         assert_eq!(tokens.len(), 2);
     }
+
+    #[test]
+    fn test_comments() {
+        let src = "
+// this is a comment
+// let a: int = b;
+        ";
+        let (tokens, errs) = lexer().parse_recovery(src);
+
+        let tokens = tokens.unwrap();
+
+        println!("{:?}", errs);
+        assert!(errs.is_empty());
+
+        assert!(tokens.is_empty());
+    }
 }
