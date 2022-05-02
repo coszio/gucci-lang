@@ -14,7 +14,7 @@ trait Updateable<T: Typed> {
 }
 
 
-enum Error {
+pub(crate) enum Error {
   Unassignable(String, Type, Type),
   Inexistent(String),
   Duplicate(String),
@@ -92,7 +92,7 @@ where T: Typed {
   }
 }
 
-struct Scope {
+pub struct Scope {
   parent: Option<Box<Self>>,
   vars: Dir<Var>,
   funcs: Dir<Fun>,

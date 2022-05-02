@@ -2,6 +2,8 @@ mod lexer;
 mod parser;
 mod formatter;
 mod directory;
+mod semantics;
+mod semantic_cube;
 
 use std::{fs, env};
 use chumsky::{Parser, Stream};

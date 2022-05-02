@@ -36,7 +36,7 @@ pub struct Field {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Decl {
+pub(crate) enum Decl {
     Let { 
         name: String,
         type_: Type,
@@ -71,7 +71,7 @@ pub struct Fun {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct FunSignature {
+pub(crate) struct FunSignature {
     name: String,
     params: Vec<Spanned<Var>>,
     ret_type: Option<Type>,
@@ -161,6 +161,9 @@ pub enum Type {
 
     //// Custom
     Custom(String),
+
+    //// Error handling
+    Error,
 }
 
 impl Display for Type {
