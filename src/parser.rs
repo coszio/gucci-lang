@@ -163,6 +163,20 @@ pub enum Type {
     Custom(String),
 }
 
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Int => write!(f, "int"),
+            Type::Float => write!(f, "float"),
+            Type::Bool => write!(f, "bool"),
+            Type::Char => write!(f, "char"),
+            Type::Array(t) => write!(f, "[{:?}]", t),
+            Type::String => write!(f, "string"),
+            Type::Custom(name) => write!(f, "{}", name),
+        }
+    }
+}
+
 
 pub fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
     let ident = select! { Token::Ident(name) => name.clone() }.labelled("identifier");

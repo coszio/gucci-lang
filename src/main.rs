@@ -1,6 +1,7 @@
 mod lexer;
 mod parser;
 mod formatter;
+mod directory;
 
 use std::{fs, env};
 use chumsky::{Parser, Stream};
