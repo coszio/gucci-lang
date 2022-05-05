@@ -7,11 +7,11 @@ use chumsky::{
 
 use crate::lexer::{Token, Span, Op};
 
-type Spanned<T> = (T, Span);
-type Block = Vec<Spanned<Stmt>>;
+pub(crate) type Spanned<T> = (T, Span);
+pub(crate) type Block = Vec<Spanned<Stmt>>;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Stmt {
+pub(crate) enum Stmt {
     Decl(Decl),
     Assign {
         to: Field, 
@@ -30,7 +30,7 @@ pub enum Stmt {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Field {
+pub(crate) struct Field {
     name: String,
     child: Option<Box<Self>>,
 }
@@ -57,13 +57,13 @@ pub(crate) enum Decl {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct Var {
+pub(crate) struct Var {
     name: String,
     type_: Type,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Fun {
+pub(crate) struct Fun {
     name: String,
     params: Vec<Spanned<Var>>,
     ret_type: Option<Type>,
@@ -79,7 +79,7 @@ pub(crate) struct FunSignature {
 
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Loop {
+pub(crate) enum Loop {
     While {
         cond: Spanned<Expr>,
         body: Block,
@@ -87,7 +87,7 @@ pub enum Loop {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Expr {
+pub(crate) enum Expr {
     Error,
     Call {
         fun: Box<Spanned<Self>>, 
@@ -109,7 +109,7 @@ pub enum Expr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum BinOp {
+pub(crate) enum BinOp {
     //// Structural
     Chain,
 
@@ -133,13 +133,13 @@ pub enum BinOp {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum UnOp {
+pub(crate) enum UnOp {
     Not,
     Neg,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Literal {
+pub(crate) enum Literal {
     Int(i64),
     Float(f64),
     Bool(bool),
@@ -148,7 +148,7 @@ pub enum Literal {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Type {
+pub(crate) enum Type {
     //// Primitive
     Int,
     Float,
@@ -176,12 +176,13 @@ impl Display for Type {
             Type::Array(t) => write!(f, "[{:?}]", t),
             Type::String => write!(f, "string"),
             Type::Custom(name) => write!(f, "{}", name),
+            Type::Error => todo!(),
         }
     }
 }
 
 
-pub fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
+pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
     let ident = select! { Token::Ident(name) => name.clone() }.labelled("identifier");
     
     let this = just(Token::This).to("this".to_string());

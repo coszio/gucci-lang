@@ -6,10 +6,10 @@ use chumsky::{
     Parser,
 };
 
-pub type Span = std::ops::Range<usize>;
+pub(crate) type Span = std::ops::Range<usize>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Op {
+pub(crate) enum Op {
     Add,
     Sub,
     Mul,
@@ -34,7 +34,7 @@ impl Display for Op {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Token {
+pub(crate) enum Token {
     Void,
     Ident(String),
     Int(String),
@@ -94,7 +94,7 @@ impl Display for Token {
     }
 }
 
-pub fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
+pub(crate) fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
     let keyword_or_id = text::ident().map(|s: String| match s.as_str() {
         "void" => Token::Void,
         "fun" => Token::Fun,

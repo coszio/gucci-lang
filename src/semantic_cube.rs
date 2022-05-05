@@ -1,7 +1,22 @@
+use std::fmt::Display;
+
 use crate::parser::{Type, BinOp};
 
-pub(crate) fn resolve(lhs: &Type, op: &BinOp, rhs: &Type) -> Type {
-  let returns_type = match lhs {
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct TypeError {
+      lhs: Type,
+      rhs: Type,
+      op: BinOp,
+}
+
+impl Display for TypeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Invalid operation {} {:?} {} ", self.lhs, self.op, self.rhs)
+    }
+}
+
+pub(crate) fn resolve(lhs: &Type, op: &BinOp, rhs: &Type) -> std::result::Result<Type, TypeError> {
+  let return_type = match lhs {
     Type::Int => match rhs {
         Type::Int => match op {
             BinOp::Add => Type::Int,
@@ -283,8 +298,53 @@ pub(crate) fn resolve(lhs: &Type, op: &BinOp, rhs: &Type) -> Type {
       _ => Type::Error,
     },
   };
-  if returns_type == Type::Error {
-    // Handle error
+  if return_type == Type::Error {
+    return Err(TypeError {
+      lhs: lhs.clone(),
+      rhs: rhs.clone(),
+      op: op.clone(),
+    })
   }
-  returns_type
+  Ok(return_type)
+}
+
+#[cfg(test)]
+mod tests {
+      use super::*;
+
+      #[test]
+      fn test_int_add_int() {
+        let lhs = Type::Int;
+        let op = BinOp::Add;
+        let rhs = Type::Int;
+
+        let result = resolve(&lhs, &op,&rhs);
+
+        assert_eq!(result, Ok(Type::Int));
+      }
+
+      #[test]
+      fn test_int_add_string() {
+        let lhs = Type::Int;
+        let op = BinOp::Add;
+        let rhs = Type::String;
+
+        let result = resolve(&lhs, &op,&rhs);
+
+        assert!(result.is_err());
+      }
+
+      #[test]
+      fn test_high_load() {
+            let lhs = Type::Int;
+            let op = BinOp::Add;
+            let rhs = Type::Float;
+      
+            // test 10 million times, sequentially... should take less than a second
+            (0 .. 10_000_000)
+                .for_each(|_| {
+                    let result = resolve(&lhs, &op,&rhs);
+                    assert!(result.is_ok());
+                });
+      }
 }

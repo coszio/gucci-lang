@@ -13,6 +13,7 @@ fn main() {
     // let src = fs::read_to_string(env::args().nth(1).expect("Expected file argument"))
     //     .expect("Failed to read file");
 
+    // Tokenize
     let src = fs::read_to_string("examples/simple.gu")
         .expect("Failed to read file");
 
@@ -30,6 +31,7 @@ fn main() {
 
     let len = src.chars().count();
     
+    // Parse
     let (stmts, parse_errs) = parser::parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
     
     println!("parse errors: {:?}", parse_errs);
@@ -41,4 +43,7 @@ fn main() {
             println!("{:?}", stmt);
         });
 
+    // Check types
+
+    
 }
