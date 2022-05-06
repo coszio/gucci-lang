@@ -7,11 +7,11 @@ use chumsky::{
 
 use crate::lexer::{Token, Span, Op};
 
-type Spanned<T> = (T, Span);
-type Block = Vec<Spanned<Stmt>>;
+pub(crate) type Spanned<T> = (T, Span);
+pub(crate) type Block = Vec<Spanned<Stmt>>;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Stmt {
+pub(crate) enum Stmt {
     Decl(Decl),
     Assign {
         to: Field, 
@@ -30,13 +30,24 @@ pub enum Stmt {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Field {
+pub(crate) struct Field {
     name: String,
     child: Option<Box<Self>>,
 }
+impl ToString for Field {
+    fn to_string(&self) -> String {
+        let mut s = String::new();
+        s.push_str(&self.name);
+        if let Some(ref child) = self.child {
+            s.push_str(".");
+            s.push_str(&child.to_string());
+        }
+        s
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Decl {
+pub(crate) enum Decl {
     Let { 
         name: String,
         type_: Type,
@@ -57,29 +68,29 @@ pub enum Decl {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct Var {
-    name: String,
-    type_: Type,
+pub(crate) struct Var {
+    pub name: String,
+    pub type_: Type,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Fun {
-    name: String,
-    params: Vec<Spanned<Var>>,
-    ret_type: Option<Type>,
-    body: Block,
+pub(crate) struct Fun {
+    pub name: String,
+    pub params: Vec<Spanned<Var>>,
+    pub ret_type: Option<Type>,
+    pub body: Block,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct FunSignature {
-    name: String,
-    params: Vec<Spanned<Var>>,
-    ret_type: Option<Type>,
+pub(crate) struct FunSignature {
+    pub name: String,
+    pub params: Vec<Spanned<Var>>,
+    pub ret_type: Option<Type>,
 }
 
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Loop {
+pub(crate) enum Loop {
     While {
         cond: Spanned<Expr>,
         body: Block,
@@ -87,7 +98,7 @@ pub enum Loop {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Expr {
+pub(crate) enum Expr {
     Error,
     Call {
         fun: Box<Spanned<Self>>, 
@@ -109,7 +120,7 @@ pub enum Expr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum BinOp {
+pub(crate) enum BinOp {
     //// Structural
     Chain,
 
@@ -131,15 +142,34 @@ pub enum BinOp {
     And,
     Or,
 }
+impl Display for BinOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BinOp::Chain => write!(f, "."),
+            BinOp::Add => write!(f, "+"),
+            BinOp::Sub => write!(f, "-"),
+            BinOp::Mul => write!(f, "*"),
+            BinOp::Div => write!(f, "/"),
+            BinOp::Eq => write!(f, "=="),
+            BinOp::Ne => write!(f, "!="),
+            BinOp::Lt => write!(f, "<"),
+            BinOp::Gt => write!(f, ">"),
+            BinOp::Lte => write!(f, "<="),
+            BinOp::Gte => write!(f, ">="),
+            BinOp::And => write!(f, "&&"),
+            BinOp::Or => write!(f, "||"),
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum UnOp {
+pub(crate) enum UnOp {
     Not,
     Neg,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Literal {
+pub(crate) enum Literal {
     Int(i64),
     Float(f64),
     Bool(bool),
@@ -148,7 +178,7 @@ pub enum Literal {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Type {
+pub(crate) enum Type {
     //// Primitive
     Int,
     Float,
@@ -161,6 +191,9 @@ pub enum Type {
 
     //// Custom
     Custom(String),
+
+    //// Error handling
+    Error,
 }
 
 impl Display for Type {
@@ -173,12 +206,13 @@ impl Display for Type {
             Type::Array(t) => write!(f, "[{:?}]", t),
             Type::String => write!(f, "string"),
             Type::Custom(name) => write!(f, "{}", name),
+            Type::Error => todo!(),
         }
     }
 }
 
 
-pub fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
+pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
     let ident = select! { Token::Ident(name) => name.clone() }.labelled("identifier");
     
     let this = just(Token::This).to("this".to_string());
