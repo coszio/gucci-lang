@@ -36,14 +36,21 @@ fn main() {
     
     println!("parse errors: {:?}", parse_errs);
 
-    stmts
-        .unwrap()
-        .iter()
-        .for_each(|stmt| {
-            println!("{:?}", stmt);
-        });
+    // stmts
+    //     .unwrap()
+    //     .iter()
+    //     .for_each(|stmt| {
+    //         println!("{:?}", stmt);
+    //     });
 
     // Check types
+    let res = semantics::semantic_analysis(stmts.unwrap());
+
+    if let Err(errs) = res {
+        println!("semantic errors: {:?}", errs);
+    }
+
+
 
     
 }

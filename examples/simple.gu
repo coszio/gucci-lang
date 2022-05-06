@@ -1,18 +1,23 @@
-class Point { 
-  has: 
-    x: float;
-    y: float;
+// class Point { 
+//   has: 
+//     x: float;
+//     y: float;
+// 
+//   does: 
+//     fun new(): Point {
+//       this.x = 0.0;
+//       this.y = 0.0;
+//       return this;
+//     }
+// }
+// 
+// let p: Point = Point.new();
+// 
+// if p == Point.new() {
+//   return true;
+// }
 
-  does: 
-    fun new(): Point {
-      this.x = 0.0;
-      this.y = 0.0;
-      return this;
-    }
-}
+let i: string = "hola";
+let j: int = 1;
 
-let p: Point = Point.new();
-
-if p == Point.new() {
-  return true;
-}
+i = i + j / 2;

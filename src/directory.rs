@@ -1,15 +1,15 @@
 
 use std::{collections::HashMap, fmt::Display};
 
-use crate::parser::{Type, Expr};
+use crate::parser::{Type, Expr, BinOp};
 
 type Result<T> = std::result::Result<T, Error>;
 
-trait Update<T> {
+pub(crate) trait Update<T> {
   fn update(&mut self, other: &T) -> Result<()>;
 }
 
-trait Key {
+pub(crate) trait Key {
   fn key(&self) -> &str;
 }
 
@@ -34,7 +34,7 @@ impl Display for Error {
 
 /// Generic directory for the different elements of the language
 #[derive(Debug, Clone)]
-struct Dir<T> {
+pub(crate) struct Dir<T> {
     parent: Option<Box<Self>>,
     dir: HashMap<String, T>,
 }
@@ -48,7 +48,7 @@ where T: Clone + Key {
     }
   }
 
-  fn get(&self, key: &str) -> Result<&T> {
+  pub fn get(&self, key: &str) -> Result<&T> {
     if let Some(t) = self.dir.get(key) {
       Ok(t)
     } else if let Some(ref parent) = self.parent {
@@ -58,7 +58,7 @@ where T: Clone + Key {
     }
   }
 
-  fn create(&mut self, item: T) -> Result<()> {
+  pub fn create(&mut self, item: T) -> Result<()> {
     let key = item.key();
     if self.dir.contains_key(key) {
       Err(Error::Duplicate(key.to_string()))
@@ -68,11 +68,11 @@ where T: Clone + Key {
     }
   }
 
-  fn has(&self, key: &str) -> bool {
+  pub fn has(&self, key: &str) -> bool {
     self.dir.contains_key(key) || (self.parent.is_some() && self.parent.as_ref().unwrap().has(key))
   }
 
-  fn remove(&mut self, key: &str) -> Result<()> {
+  pub fn remove(&mut self, key: &str) -> Result<()> {
     if let Some(_) = self.dir.remove(key) {
       Ok(())
     } else if let Some(ref mut parent) = self.parent {
@@ -82,7 +82,7 @@ where T: Clone + Key {
     }
   }
 
-  fn update(&mut self, item: T) -> Result<()> where T: Update<T> {
+  pub fn update(&mut self, item: T) -> Result<()> where T: Update<T> {
     let key = item.key();
     if let Some(t) = self.dir.get_mut(key) {
       t.update(&item)
@@ -93,26 +93,36 @@ where T: Clone + Key {
     }
   }
 
-  fn add_child(&self) -> Self {
+  pub fn add_child(&self) -> Self {
     let mut child = Dir::new();
     child.parent = Some(Box::new(self.clone()));
     child
   }
 
-  fn drop(self) -> Self {
+  pub fn drop(self) -> Self {
     let parent = *self.parent.unwrap();
     drop(self.dir);
     parent
   }
 }
 
-type Scope = Dir<Item>;
+pub(crate) type Scope = Dir<Item>;
 
 #[derive(Debug, Clone, PartialEq)]
-struct Item { 
-  id: String,
-  kind: Kind,
-  type_: Option<Type>,
+pub(crate) struct Item { 
+  pub id: String,
+  pub kind: Kind,
+  pub type_: Option<Type>,
+}
+
+impl Item {
+  pub fn new(id: String, kind: Kind, type_: Type) -> Self {
+    Item {
+      id,
+      kind,
+      type_: Some(type_),
+    }
+  }
 }
 
 impl Update<Item> for Item {

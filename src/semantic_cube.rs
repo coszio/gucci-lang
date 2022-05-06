@@ -15,7 +15,7 @@ impl Display for TypeError {
     }
 }
 
-pub(crate) fn resolve(lhs: &Type, op: &BinOp, rhs: &Type) -> std::result::Result<Type, TypeError> {
+pub(crate) fn resolve(lhs: &Type, op: &BinOp, rhs: &Type) -> std::result::Result<Type, ()> {
   let return_type = match lhs {
     Type::Int => match rhs {
         Type::Int => match op {
@@ -299,11 +299,7 @@ pub(crate) fn resolve(lhs: &Type, op: &BinOp, rhs: &Type) -> std::result::Result
     },
   };
   if return_type == Type::Error {
-    return Err(TypeError {
-      lhs: lhs.clone(),
-      rhs: rhs.clone(),
-      op: op.clone(),
-    })
+    return Err(())
   }
   Ok(return_type)
 }

@@ -34,6 +34,17 @@ pub(crate) struct Field {
     name: String,
     child: Option<Box<Self>>,
 }
+impl ToString for Field {
+    fn to_string(&self) -> String {
+        let mut s = String::new();
+        s.push_str(&self.name);
+        if let Some(ref child) = self.child {
+            s.push_str(".");
+            s.push_str(&child.to_string());
+        }
+        s
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Decl {
@@ -58,23 +69,23 @@ pub(crate) enum Decl {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Var {
-    name: String,
-    type_: Type,
+    pub name: String,
+    pub type_: Type,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Fun {
-    name: String,
-    params: Vec<Spanned<Var>>,
-    ret_type: Option<Type>,
-    body: Block,
+    pub name: String,
+    pub params: Vec<Spanned<Var>>,
+    pub ret_type: Option<Type>,
+    pub body: Block,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct FunSignature {
-    name: String,
-    params: Vec<Spanned<Var>>,
-    ret_type: Option<Type>,
+    pub name: String,
+    pub params: Vec<Spanned<Var>>,
+    pub ret_type: Option<Type>,
 }
 
 
@@ -130,6 +141,25 @@ pub(crate) enum BinOp {
     //// Boolean
     And,
     Or,
+}
+impl Display for BinOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BinOp::Chain => write!(f, "."),
+            BinOp::Add => write!(f, "+"),
+            BinOp::Sub => write!(f, "-"),
+            BinOp::Mul => write!(f, "*"),
+            BinOp::Div => write!(f, "/"),
+            BinOp::Eq => write!(f, "=="),
+            BinOp::Ne => write!(f, "!="),
+            BinOp::Lt => write!(f, "<"),
+            BinOp::Gt => write!(f, ">"),
+            BinOp::Lte => write!(f, "<="),
+            BinOp::Gte => write!(f, ">="),
+            BinOp::And => write!(f, "&&"),
+            BinOp::Or => write!(f, "||"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
