@@ -4,6 +4,7 @@ mod formatter;
 mod directory;
 mod semantics;
 mod semantic_cube;
+mod translator;
 
 use std::{fs, env};
 use chumsky::{Parser, Stream};
@@ -36,7 +37,7 @@ fn main() {
     
     println!("parse errors: {:?}", parse_errs);
 
-    // stmts
+    // stmts.clone()
     //     .unwrap()
     //     .iter()
     //     .for_each(|stmt| {
@@ -44,10 +45,16 @@ fn main() {
     //     });
 
     // Check types
-    let res = semantics::semantic_analysis(stmts.unwrap());
+    let res = semantics::semantic_analysis(stmts.clone().unwrap());
 
     if let Err(errs) = res {
         println!("semantic errors: {:?}", errs);
+    } else {
+        
+        // Translate only if there were no semantic errors
+        let res = translator::translate(stmts.unwrap()).unwrap();
+    
+        println!("{}", res);
     }
 
 

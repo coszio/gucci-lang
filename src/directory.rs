@@ -149,6 +149,7 @@ impl Key for Item {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Kind {
+  Literal,
   Var,
   Fun,
   Class,
@@ -162,6 +163,7 @@ impl Display for Kind {
             Kind::Fun => write!(f, "function"),
             Kind::Class => write!(f, "class"),
             Kind::Interface => write!(f, "interface"),
+            Kind::Literal => write!(f, "literal"),
         }
     }
 }

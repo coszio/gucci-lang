@@ -146,18 +146,18 @@ impl Display for BinOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             BinOp::Chain => write!(f, "."),
-            BinOp::Add => write!(f, "+"),
-            BinOp::Sub => write!(f, "-"),
-            BinOp::Mul => write!(f, "*"),
-            BinOp::Div => write!(f, "/"),
-            BinOp::Eq => write!(f, "=="),
-            BinOp::Ne => write!(f, "!="),
-            BinOp::Lt => write!(f, "<"),
-            BinOp::Gt => write!(f, ">"),
-            BinOp::Lte => write!(f, "<="),
-            BinOp::Gte => write!(f, ">="),
-            BinOp::And => write!(f, "&&"),
-            BinOp::Or => write!(f, "||"),
+            BinOp::Add => write!(f, "ADD"),
+            BinOp::Sub => write!(f, "SUB"),
+            BinOp::Mul => write!(f, "MUL"),
+            BinOp::Div => write!(f, "DIV"),
+            BinOp::Eq => write!(f, "EQ"),
+            BinOp::Ne => write!(f, "NEQ"),
+            BinOp::Lt => write!(f, "LT"),
+            BinOp::Gt => write!(f, "GT"),
+            BinOp::Lte => write!(f, "LTE"),
+            BinOp::Gte => write!(f, "GTE"),
+            BinOp::And => write!(f, "AND"),
+            BinOp::Or => write!(f, "OR"),
         }
     }
 }
@@ -166,6 +166,14 @@ impl Display for BinOp {
 pub(crate) enum UnOp {
     Not,
     Neg,
+}
+impl Display for UnOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UnOp::Not => write!(f, "NOT"),
+            UnOp::Neg => write!(f, "NEG"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -477,6 +485,9 @@ pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<
         .ignore_then(expr.clone())
         .map(|value| Stmt::Return(value));
 
+    // An expression statement
+    let expr_stmt = expr.clone().map(Stmt::Expr);
+
     // Parameters used in function declarations
     let params = var
         .clone()
@@ -588,6 +599,7 @@ pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<
                 let_,
               assign,
               return_,
+              expr_stmt,
             ))
             .then_ignore(just(Token::Ctrl(';')))
             .or(choice((
@@ -1685,6 +1697,37 @@ foo = Foo.new();
                         }, 24..29)) 
                     }, 20..29) 
                 }, 14..30)
+        );
+    }
+    #[test]
+    fn test_expr_stmt() {
+        let src = "
+a + 4 / call();
+";
+
+        let stmts = parse_from(src);
+
+        println!("{:?}", stmts);
+
+        assert_eq!(
+            stmts[0],
+            (
+                Stmt::Expr(
+                    (Expr::Binary {
+                        lhs: Box::new((Expr::Ident( "a".to_string()), 1..2)), 
+                        op: BinOp::Add,
+                        rhs: Box::new((Expr::Binary {
+                            lhs: Box::new((Expr::Constant(Literal::Int(4)), 5..6)),
+                            op: BinOp::Div,
+                            rhs: Box::new((Expr::Call {
+                                fun: Box::new((Expr::Ident("call".to_string()), 9..13)),
+                                args: vec![],
+                            }, 9..15)),
+                        }, 5..15)),
+                    }, 1..15),
+                  ),
+                1..16
+            )
         );
     }
 }

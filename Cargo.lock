@@ -80,6 +80,7 @@ version = "0.1.0"
 dependencies = [
  "ariadne",
  "chumsky",
+ "lazy_static",
 ]
 
 [[package]]

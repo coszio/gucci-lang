@@ -48,8 +48,8 @@ fn map_dir_errs(err: directory::Error) -> Error {
   }
 }
 
-fn eval_expr(expr: Expr, span: Span, scope: &Scope) -> Result<Type> {
-  // let scope = directory::Scope::new();
+pub(crate) fn eval_expr(expr: Expr, span: Span, scope: &Scope) -> Result<Type> {
+  
   match expr {
     Expr::Error => todo!(),
     Expr::Call { fun, args } => todo!(),
@@ -100,7 +100,7 @@ fn eval_expr(expr: Expr, span: Span, scope: &Scope) -> Result<Type> {
 }
 
 
-fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<()> {
+pub(crate) fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<()> {
 
   match stmt {
 
@@ -148,7 +148,7 @@ fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<()> {
         .map_err(map_dir_errs)?
         .type_
         .clone()
-        .ok_or_else(|| panic!("Expressions should have a type"))?;
+        .expect("Expressions should have a type");
 
       if value_type != to_type {
         return Err(Error::TypeMismatch(to.to_string(), to_type, value_type));
