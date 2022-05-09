@@ -1,7 +1,10 @@
 use std::{fmt::Display, io::{BufWriter, Write}, sync::Mutex};
 
-use crate::{parser::{Block, Stmt, Expr, Type, Literal}, directory::{self, Item, Kind, Dir, Scope, Key}, semantic_cube::{self, resolve}, semantics::eval_expr};
 use lazy_static::lazy_static;
+
+use crate::directory::{Dir, self, Key};
+
+use super::{parser::ast::{Decl, Expr, Literal, Type, Stmt, Block}, semantics::{item::{Item, Kind}, Scope}};
 
 #[derive(Debug, Clone)]
 struct Constant {
@@ -125,7 +128,7 @@ fn translate_stmt(buffer: &mut BufWriter<Vec<u8>>, stmt: Stmt, type_dir: &mut Sc
   
   match stmt {
     Stmt::Decl(decl) => match decl {
-        crate::parser::Decl::Let { name, type_, value } => {
+        Decl::Let { name, type_, value } => {
           if let Some(value) = value {
 
             let value_id = translate_expr(buffer, value.0, type_dir, const_dir);
@@ -148,9 +151,9 @@ fn translate_stmt(buffer: &mut BufWriter<Vec<u8>>, stmt: Stmt, type_dir: &mut Sc
             todo!();
           }
         },
-        crate::parser::Decl::Fun(_) => todo!(),
-        crate::parser::Decl::Class { name, inherits, implements, has, does } => todo!(),
-        crate::parser::Decl::Interface { name, should_do } => todo!(),
+        Decl::Fun(_) => todo!(),
+        Decl::Class { name, inherits, implements, has, does } => todo!(),
+        Decl::Interface { name, should_do } => todo!(),
     },
     Stmt::Assign { to, value } => {
       let value_id = translate_expr(buffer, value.0, type_dir, const_dir);
@@ -176,15 +179,16 @@ fn translate_stmt(buffer: &mut BufWriter<Vec<u8>>, stmt: Stmt, type_dir: &mut Sc
 
 pub(crate) fn translate(stmts: Block) -> Result<String, ()> {
 
-  let mut scope = directory::Scope::new();
+  let mut scope = Scope::new();
   
   let mut buffer = BufWriter::new(Vec::new());
 
+  let mut const_dir: Dir<Constant> = directory::Dir::new();
   for (stmt, span) in stmts {
-    let stmt_id = translate_stmt(&mut buffer, stmt, &mut scope, &mut directory::Dir::new());
+    let stmt_id = translate_stmt(&mut buffer, stmt, &mut scope, &mut const_dir);
   }
     
-  // println!("{}", output);
+  println!("{:?}", const_dir);
 
   Ok(String::from_utf8(buffer.into_inner().unwrap()).unwrap())
 
@@ -192,14 +196,14 @@ pub(crate) fn translate(stmts: Block) -> Result<String, ()> {
 
 mod tests {
 
-  use crate::{lexer::Span, parser::BinOp};
+  use crate::compiler::parser::ast::BinOp;
 
-use super::*;
+  use super::*;
 
   #[test]
   fn test_translate_expr() {
     let mut buffer = BufWriter::new(Vec::new());
-    let mut scope = directory::Scope::new();
+    let mut scope = Scope::new();
     let mut const_dir = directory::Dir::new();
 
     let stmt = Stmt::Expr((Expr::Binary {

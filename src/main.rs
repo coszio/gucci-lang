@@ -1,13 +1,11 @@
-mod lexer;
-mod parser;
+mod compiler;
 mod formatter;
 mod directory;
-mod semantics;
-mod semantic_cube;
-mod translator;
 
 use std::{fs, env};
 use chumsky::{Parser, Stream};
+
+use crate::compiler::{lexer, parser, translator, semantics};
 
 
 fn main() {
