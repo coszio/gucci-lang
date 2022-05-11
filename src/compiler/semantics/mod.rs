@@ -188,7 +188,19 @@ pub(crate) fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<()>
     },
 
     Stmt::Loop(loop_) => match loop_ {
-        Loop::While { cond, body } => todo!(),
+        Loop::While { cond, body } => {
+          let cond_type = eval_expr(cond.0, cond.1, &scope)?;
+
+          if cond_type != Type::Bool {
+            return Err((Error::NonBooleanCondition(cond_type), span.clone()));
+          }
+
+          for (stmt, span) in body {
+            eval_stmt(stmt, span.clone(), scope)?;
+          }
+
+          Ok(())
+        },
     },
 
     Stmt::Expr((expr, span)) => {
