@@ -2,7 +2,7 @@ use std::{fmt::Display, io::{BufWriter, Write}, sync::Mutex};
 
 use lazy_static::lazy_static;
 
-use crate::directory::{Dir, self, Key};
+use crate::{directory::{Dir, self, Key}, compiler::parser::ast::Loop};
 
 use super::{parser::ast::{Decl, Expr, Literal, Type, Stmt, Block}, semantics::{item::{Item, Kind}, Scope}};
 
@@ -228,8 +228,41 @@ fn translate_stmt(output: &mut Vec<Quad>, stmt: Stmt) -> String {
 
       "".to_string()
     },
-    Stmt::Loop(_) => todo!(),
-    Stmt::Expr((expr, span)) => translate_expr(output, expr),
+    Stmt::Loop(loop_) => match loop_ {
+      Loop::While { cond, body } => {
+
+        let cond_pointer = output.len(); // we need to reevaluate the expression after the loop
+        let condition_id = translate_expr(output, cond.0);
+
+        let gotof_quad = Quad {
+          op: "GOTOF".to_string(),
+          arg1: condition_id,
+          arg2: "".to_string(),
+          arg3: "".to_string(),
+        };
+
+        output.push(gotof_quad);
+        let gotof_pointer = output.len() - 1; // GOTOF instruction index
+
+        // translate inner block
+        for (stmt, _) in body {
+          let _ = translate_stmt(output, stmt);
+        }
+
+        // return to the condition of the loop
+        let goto_cond = Quad {
+          op: "GOTO".to_string(),
+          arg1: "".to_string(),
+          arg2: cond_pointer.to_string(),
+          arg3: "".to_string(),
+        };
+        output.push(goto_cond);
+
+        output[gotof_pointer].arg2 = format!("{}", output.len()); // update the gotof location to exit the loop
+        "".to_string()
+      },
+    },
+    Stmt::Expr((expr, _)) => translate_expr(output, expr),
     Stmt::Return(_) => todo!(),
     Stmt::Error => unreachable!(),
   }
@@ -386,5 +419,24 @@ use crate::compiler::{parser::{ast::BinOp, parser}, lexer::lexer, semantics};
     assert_eq!(quads[11], Quad::new("GOTO",  "",     "13",    ""));
     assert_eq!(quads[12], Quad::new("ADD",   "i:11", "i:12",  "t6"));
     assert_eq!(quads[13], Quad::new("END",   "",     "",      ""));
+  }
+
+  #[test]
+  fn test_while() {
+    let src = "
+      while 1 > 2 {
+        3 + 4;
+      }
+    ";
+
+    let Quadruples(quads) = translate_from_src(src).unwrap();
+
+    assert_eq!(quads.len(), 5);
+      
+    assert_eq!(quads[0], Quad::new("GT", "i:1", "i:2", "t0"));
+    assert_eq!(quads[1], Quad::new("GOTOF", "t0", "4", ""));
+    assert_eq!(quads[2], Quad::new("ADD", "i:3", "i:4", "t1"));
+    assert_eq!(quads[3], Quad::new("GOTO", "", "0", ""));
+    assert_eq!(quads[4], Quad::new("END", "", "", ""));
   }
 }
