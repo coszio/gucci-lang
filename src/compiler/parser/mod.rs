@@ -1,216 +1,13 @@
-use std::fmt::Display;
+pub mod ast;
 
 use chumsky::{
     prelude::{filter_map, just, skip_then_retry_until, recursive, Simple, nested_delimiters, choice},
     Parser, select
 };
 
-use crate::lexer::{Token, Span, Op};
+use super::lexer::{Token, Span, Op};
 
-pub(crate) type Spanned<T> = (T, Span);
-pub(crate) type Block = Vec<Spanned<Stmt>>;
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Stmt {
-    Decl(Decl),
-    Assign {
-        to: Field, 
-        value: Spanned<Expr>,
-    },
-    Cond {
-        if_: Spanned<Expr>,
-        then: Block,
-        elif: Vec<(Spanned<Expr>, Block)>,
-        else_: Option<Block>,
-    },
-    Loop(Loop),
-    Expr(Spanned<Expr>),
-    Return(Spanned<Expr>),
-    Error,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Field {
-    name: String,
-    child: Option<Box<Self>>,
-}
-impl ToString for Field {
-    fn to_string(&self) -> String {
-        let mut s = String::new();
-        s.push_str(&self.name);
-        if let Some(ref child) = self.child {
-            s.push_str(".");
-            s.push_str(&child.to_string());
-        }
-        s
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Decl {
-    Let { 
-        name: String,
-        type_: Type,
-        value: Option<Spanned<Expr>>,
-    },
-    Fun(Fun),
-    Class {
-        name: String,
-        inherits: Option<String>,
-        implements: Option<String>,
-        has: Vec<Spanned<Var>>,
-        does: Vec<Spanned<Fun>>,
-    },
-    Interface {
-        name: String,
-        should_do: Vec<Spanned<FunSignature>>,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Var {
-    pub name: String,
-    pub type_: Type,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Fun {
-    pub name: String,
-    pub params: Vec<Spanned<Var>>,
-    pub ret_type: Option<Type>,
-    pub body: Block,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct FunSignature {
-    pub name: String,
-    pub params: Vec<Spanned<Var>>,
-    pub ret_type: Option<Type>,
-}
-
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Loop {
-    While {
-        cond: Spanned<Expr>,
-        body: Block,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Expr {
-    Error,
-    Call {
-        fun: Box<Spanned<Self>>, 
-        args: Vec<Spanned<Self>>,
-    },
-    Binary {
-        lhs: Box<Spanned<Self>>, 
-        op: BinOp, 
-        rhs: Box<Spanned<Self>>,
-    },
-    Unary { 
-        op: UnOp,
-        rhs: Box<Spanned<Self>>,
-    },
-    Constant(Literal),
-    Ident(String),
-    Array(Vec<Spanned<Self>>),
-    Parenthesized(Box<Spanned<Self>>),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum BinOp {
-    //// Structural
-    Chain,
-
-    //// Arithmetic
-    Add,
-    Sub,
-    Mul,
-    Div,
-
-    //// Comparison
-    Eq,
-    Ne,
-    Lt,
-    Gt,
-    Lte,
-    Gte,
-
-    //// Boolean
-    And,
-    Or,
-}
-impl Display for BinOp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BinOp::Chain => write!(f, "."),
-            BinOp::Add => write!(f, "+"),
-            BinOp::Sub => write!(f, "-"),
-            BinOp::Mul => write!(f, "*"),
-            BinOp::Div => write!(f, "/"),
-            BinOp::Eq => write!(f, "=="),
-            BinOp::Ne => write!(f, "!="),
-            BinOp::Lt => write!(f, "<"),
-            BinOp::Gt => write!(f, ">"),
-            BinOp::Lte => write!(f, "<="),
-            BinOp::Gte => write!(f, ">="),
-            BinOp::And => write!(f, "&&"),
-            BinOp::Or => write!(f, "||"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum UnOp {
-    Not,
-    Neg,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Literal {
-    Int(i64),
-    Float(f64),
-    Bool(bool),
-    Char(char),
-    String(String),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Type {
-    //// Primitive
-    Int,
-    Float,
-    Bool,
-    Char,
-
-    //// Compound
-    Array(Box<Self>),
-    String,
-
-    //// Custom
-    Custom(String),
-
-    //// Error handling
-    Error,
-}
-
-impl Display for Type {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Type::Int => write!(f, "int"),
-            Type::Float => write!(f, "float"),
-            Type::Bool => write!(f, "bool"),
-            Type::Char => write!(f, "char"),
-            Type::Array(t) => write!(f, "[{:?}]", t),
-            Type::String => write!(f, "string"),
-            Type::Custom(name) => write!(f, "{}", name),
-            Type::Error => todo!(),
-        }
-    }
-}
-
+use self::ast::*;
 
 pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
     let ident = select! { Token::Ident(name) => name.clone() }.labelled("identifier");
@@ -477,6 +274,9 @@ pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<
         .ignore_then(expr.clone())
         .map(|value| Stmt::Return(value));
 
+    // An expression statement
+    let expr_stmt = expr.clone().map(Stmt::Expr);
+
     // Parameters used in function declarations
     let params = var
         .clone()
@@ -588,6 +388,7 @@ pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<
                 let_,
               assign,
               return_,
+              expr_stmt,
             ))
             .then_ignore(just(Token::Ctrl(';')))
             .or(choice((
@@ -612,7 +413,7 @@ mod tests {
 
     use chumsky::Stream;
 
-    use crate::lexer::lexer;
+    use crate::compiler::lexer::lexer;
 
     use super::*;
 
@@ -1685,6 +1486,37 @@ foo = Foo.new();
                         }, 24..29)) 
                     }, 20..29) 
                 }, 14..30)
+        );
+    }
+    #[test]
+    fn test_expr_stmt() {
+        let src = "
+a + 4 / call();
+";
+
+        let stmts = parse_from(src);
+
+        println!("{:?}", stmts);
+
+        assert_eq!(
+            stmts[0],
+            (
+                Stmt::Expr(
+                    (Expr::Binary {
+                        lhs: Box::new((Expr::Ident( "a".to_string()), 1..2)), 
+                        op: BinOp::Add,
+                        rhs: Box::new((Expr::Binary {
+                            lhs: Box::new((Expr::Constant(Literal::Int(4)), 5..6)),
+                            op: BinOp::Div,
+                            rhs: Box::new((Expr::Call {
+                                fun: Box::new((Expr::Ident("call".to_string()), 9..13)),
+                                args: vec![],
+                            }, 9..15)),
+                        }, 5..15)),
+                    }, 1..15),
+                  ),
+                1..16
+            )
         );
     }
 }

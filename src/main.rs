@@ -1,12 +1,11 @@
-mod lexer;
-mod parser;
+mod compiler;
 mod formatter;
 mod directory;
-mod semantics;
-mod semantic_cube;
 
 use std::{fs, env};
 use chumsky::{Parser, Stream};
+
+use crate::compiler::{lexer, parser, translator, semantics};
 
 
 fn main() {
@@ -17,7 +16,7 @@ fn main() {
     let src = fs::read_to_string("examples/simple.gu")
         .expect("Failed to read file");
 
-    println!("{:?}", src.as_str());
+    // println!("{:?}", src.as_str());
 
     let (tokens, lex_errs) = lexer::lexer().parse_recovery(src.as_str());
     
@@ -27,16 +26,17 @@ fn main() {
     
     let tokens = tokens.unwrap();
 
-    println!("Tokens: {:?}", tokens);
+    // println!("Tokens: {:?}", tokens);
 
     let len = src.chars().count();
     
     // Parse
     let (stmts, parse_errs) = parser::parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
     
-    println!("parse errors: {:?}", parse_errs);
+    // println!("parse errors: {:?}", parse_errs);
+    println!("ast: {:#?}", stmts.clone());
 
-    // stmts
+    // stmts.clone()
     //     .unwrap()
     //     .iter()
     //     .for_each(|stmt| {
@@ -44,10 +44,16 @@ fn main() {
     //     });
 
     // Check types
-    let res = semantics::semantic_analysis(stmts.unwrap());
+    let res = semantics::semantic_analysis(stmts.clone().unwrap());
 
     if let Err(errs) = res {
         println!("semantic errors: {:?}", errs);
+    } else {
+        
+        // Translate only if there were no semantic errors
+        let res = translator::translate(stmts.unwrap()).unwrap();
+    
+        println!("{}", res);
     }
 
 

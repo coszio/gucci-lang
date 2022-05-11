@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
-use crate::parser::{Type, BinOp};
+use crate::compiler::parser::ast::{Type, BinOp};
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct TypeError {
