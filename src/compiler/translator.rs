@@ -26,11 +26,15 @@ use super::{parser::ast::{Decl, Expr, Literal, Type, Stmt, Block}, semantics::{i
 // }
 
 lazy_static! {
-  static ref COUNTER: Mutex<usize> = Mutex::new(0);
+  static ref ID_COUNTER: Mutex<usize> = Mutex::new(0);
+}
+
+fn reset_id() {
+  *ID_COUNTER.lock().unwrap() = 0;
 }
 
 fn new_id() -> String {
-  let mut counter = COUNTER.lock().unwrap();
+  let mut counter = ID_COUNTER.lock().unwrap();
   let id = format!("{}", counter);
   *counter += 1;
   id
@@ -233,6 +237,8 @@ fn translate_stmt(output: &mut Vec<Quad>, stmt: Stmt) -> String {
 
 pub(crate) fn translate(stmts: Block) -> Result<Quadruples, ()> {
   
+  reset_id();
+
   let mut output = Vec::new();
 
   for (stmt, _) in stmts {
