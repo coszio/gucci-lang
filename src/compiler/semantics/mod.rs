@@ -24,20 +24,22 @@ pub(crate) enum Error {
   NotAFunction(String, Kind),
   HeterogenousArray,
   EmptyArray,
+  NonBooleanCondition(Type),
 }
 
 impl Display for Error {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      Error::Undefined(key) => write!(f, "Error: `{}` does not exist in this scope", key),
-      Error::TypeMismatch(key, type1, type2) => write!(f, "Error: `{}` has type {}, but is being assigned to {}", key, type1, type2),
-      Error::Redefined(key) => write!(f, "Error: `{}` already exists in this scope", key),
-      Error::NotAVariable(key, kind) => write!(f, "Error: `{}` is a {}, which is not assignable", key, kind),
-      Error::Incompatible(op, lhs_type, rhs_type) => write!(f, "Error: `{:?}` is not compatible with {} and {}", op, lhs_type, rhs_type),
-      Error::HeterogenousArray => write!(f, "Error: Arrays must have all its elements of the same type"),
-      Error::EmptyArray => write!(f, "Error: Arrays must have at least one element"),
-      Error::UntypedVariable(id) => write!(f, "Error: {} doesn't have a type, all variables must have a type", id),
+      Error::Undefined(key) => write!(f, "`{}` does not exist in this scope", key),
+      Error::TypeMismatch(key, type1, type2) => write!(f, "`{}` has type {}, but is being assigned to {}", key, type1, type2),
+      Error::Redefined(key) => write!(f, "`{}` already exists in this scope", key),
+      Error::NotAVariable(key, kind) => write!(f, "`{}` is a {}, which is not assignable", key, kind),
+      Error::Incompatible(op, lhs_type, rhs_type) => write!(f, "`{:?}` is not compatible with {} and {}", op, lhs_type, rhs_type),
+      Error::HeterogenousArray => write!(f, "Arrays must have all its elements of the same type"),
+      Error::EmptyArray => write!(f, "Arrays must have at least one element"),
+      Error::UntypedVariable(id) => write!(f, "{} doesn't have a type, all variables must have a type", id),
       Error::NotAFunction(_, _) => todo!(),
+      Error::NonBooleanCondition(type_) => write!(f, "Conditions must return a boolean, this is returning {}", type_),
     }
   }
 }
@@ -56,7 +58,7 @@ fn map_dir_errs(err: directory::Error) -> Error {
 pub(crate) fn eval_expr(expr: Expr, span: Span, scope: &Scope) -> Result<Type> {
   
   match expr {
-    Expr::Error => todo!(),
+    Expr::Error => unreachable!(),
     Expr::Call { fun, args } => todo!(),
     Expr::Binary { lhs, op, rhs } => {
       let lhs_type = eval_expr(lhs.0, lhs.1, scope)?;
@@ -162,7 +164,28 @@ pub(crate) fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<()>
       scope.update(Item::new(to.to_string(), Kind::Var, value_type)).map_err(|e| (map_dir_errs(e), span.clone()))
     },
 
-    Stmt::Cond { if_, then, elif, else_ } => todo!(),
+    Stmt::Cond { if_, then, elif, else_ } => {
+      let ifs = [vec![(if_, then)], elif].concat();
+
+      for (if_, then) in ifs {
+        let if_type = eval_expr(if_.0, if_.1, &scope)?;
+        if if_type != Type::Bool {
+          return Err((Error::NonBooleanCondition(if_type), span.clone()));
+        }
+
+        for (stmt, span) in then {
+          eval_stmt(stmt, span.clone(), scope)?;
+        }
+      }
+
+      if let Some(else_) = else_ {
+        for (stmt, span) in else_ {
+          eval_stmt(stmt, span.clone(), scope)?;
+        }
+      }
+
+      Ok(())
+    },
 
     Stmt::Loop(loop_) => match loop_ {
         Loop::While { cond, body } => todo!(),

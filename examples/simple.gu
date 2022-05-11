@@ -21,4 +21,11 @@ let i: float = 2.0;
 let j: int = 1;
 let k: bool = true;
 
-((i - i) * 2) >= j || k && false;
+if ((i - i) * 2) >= j || k && false {
+  let IF: int = 4;
+} else if false {
+  let ELSE_IF: bool = true;
+} else {
+  let ELSE: int = 10000 + 30;
+  ELSE = j;
+}

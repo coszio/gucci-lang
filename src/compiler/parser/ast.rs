@@ -180,6 +180,19 @@ pub(crate) enum Literal {
     String(String),
 }
 
+impl Display for Literal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Literal::Int(i) => write!(f, "i:{}", i),
+            Literal::Float(float) => write!(f, "f:{}", float),
+            Literal::Bool(b) => write!(f, "b:{}", b),
+            Literal::Char(c) => write!(f, "c:{}", c),
+            Literal::String(s) => write!(f, "s:{}", s),
+        }
+    }
+}
+
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     //// Primitive

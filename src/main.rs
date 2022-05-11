@@ -16,7 +16,7 @@ fn main() {
     let src = fs::read_to_string("examples/simple.gu")
         .expect("Failed to read file");
 
-    println!("{:?}", src.as_str());
+    // println!("{:?}", src.as_str());
 
     let (tokens, lex_errs) = lexer::lexer().parse_recovery(src.as_str());
     
@@ -26,14 +26,15 @@ fn main() {
     
     let tokens = tokens.unwrap();
 
-    println!("Tokens: {:?}", tokens);
+    // println!("Tokens: {:?}", tokens);
 
     let len = src.chars().count();
     
     // Parse
     let (stmts, parse_errs) = parser::parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
     
-    println!("parse errors: {:?}", parse_errs);
+    // println!("parse errors: {:?}", parse_errs);
+    println!("ast: {:#?}", stmts.clone());
 
     // stmts.clone()
     //     .unwrap()
