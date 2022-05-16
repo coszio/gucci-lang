@@ -2,15 +2,15 @@ use std::fmt::Display;
 
 use crate::compiler::parser::ast::{UnOp, Type};
 
-#[#[derive(Debug, Clone, PartialEq)]]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct TypeError {
-    op: UnOp
-    oper: Type
+    op: UnOp,
+    oper: Type,
 }
 
 impl Display for TypeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Invalid operation {} {:?} ", self.op, self.oper)
+        write!(f, "Invalid operation {:?} {} ", self.op, self.oper)
     }
 }
 
