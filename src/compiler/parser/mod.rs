@@ -14,22 +14,22 @@ pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<
     
     let this = just(Token::This).to("this".to_string());
     
-    let single_field = ident.clone()
-        .or(this.clone())
-        .map(|name| Field { name, child: None });
+    // let single_field = ident.clone()
+    //     .or(this.clone())
+    //     .map(|name| Field { name, child: None });
 
-    let field = single_field
-        .clone()
-        .then_ignore(just(Token::Op(Op::Dot)))
-        .repeated()        
-        .then(single_field.clone())
-        .foldr(|a, b| {
-            Field { 
-                child: Some(Box::new(b)),
-                ..a
-            }
-        }
-        );
+    // let field = single_field
+    //     .clone()
+    //     .then_ignore(just(Token::Op(Op::Dot)))
+    //     .repeated()        
+    //     .then(single_field.clone())
+    //     .foldr(|a, b| {
+    //         Field { 
+    //             child: Some(Box::new(b)),
+    //             ..a
+    //         }
+    //     }
+    //     );
     
     let expr = recursive(|expr| {
         
@@ -216,7 +216,20 @@ pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<
                 }, span)
             });
 
-        or_expr
+        let op = just(Token::Op(Op::Assign)).to(BinOp::Assign);
+        let assign = or_expr
+            .clone()
+            .then(op.then(or_expr).repeated())
+            .foldl(|a, (op, b)| {
+                let span = a.1.start..b.1.end;
+                (Expr::Binary {
+                    lhs: Box::new(a), 
+                    op, 
+                    rhs: Box::new(b)
+                }, span)
+            });
+
+        assign
 
     });
 
@@ -262,12 +275,12 @@ pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<
             Stmt::Decl(Decl::Let { name: var.name, type_: var.type_, value }));
 
     // An assignment
-    let assign = field
-        .clone()
-        .then(just(Token::Op(Op::Assign))
-            .ignore_then(expr.clone()))
-        .map(|(field, value)| 
-            Stmt::Assign { to: field, value });
+    // let assign = expr
+    //     .clone()
+    //     .then(just(Token::Op(Op::Assign))
+    //         .ignore_then(expr.clone()))
+    //     .map(|(field, value)| 
+    //         Stmt::Assign { to: field, value });
 
     // A return statement
     let return_ = just(Token::Return)
@@ -386,7 +399,7 @@ pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<
         // All possible statements
         let stmt = choice((
                 let_,
-              assign,
+            //   assign,
               return_,
               expr_stmt,
             ))
@@ -422,7 +435,7 @@ mod tests {
         assert!(lex_errs.is_empty());
         let tokens = tokens.unwrap();
 
-        println!("Tokens: {:?}", tokens);
+        // println!("Tokens: {:?}", tokens);
         let len = input.chars().count();
         
         let (stmts, parse_errs) = parser().parse_recovery(Stream::from_iter(len..len + 1, tokens.into_iter()));
@@ -697,26 +710,26 @@ let a: int = 0;
                                 params: vec![],
                                 ret_type: Some(Type::Custom("Point".to_string())), 
                                 body: vec![
-                                    (Stmt::Assign {
-                                        to: Field { 
-                                            name: "this".to_string(),
-                                            child: Some(Box::new(Field { 
-                                                name: "a".to_string(),
-                                                child: None
-                                            })),
-                                        },
-                                        value: (Expr::Constant(Literal::Float(0.0)), 218..221),
-                                    }, 209..222),
-                                    (Stmt::Assign {
-                                        to: Field { 
-                                            name: "this".to_string(),
-                                            child: Some(Box::new(Field { 
-                                                name: "b".to_string(),
-                                                child: None
-                                            })),
-                                        },
-                                        value: (Expr::Constant(Literal::Float(0.0)), 244..247),
-                                    }, 235..248),
+                                    (Stmt::Expr((Expr::Binary {
+                                            lhs: Box::new((Expr::Binary {
+                                                    lhs: Box::new((Expr::Ident( "this".to_string()), 209..213)),
+                                                    op: BinOp::Chain,
+                                                    rhs: Box::new((Expr::Ident( "a".to_string()), 214..215))
+                                                }, 209..215)),
+                                            op: BinOp::Assign,
+                                            rhs: Box::new((Expr::Constant(Literal::Float(0.0)), 218..221)),
+                                        }, 209..221)), 
+                                    209..222),
+                                    (Stmt::Expr((Expr::Binary {
+                                            lhs: Box::new((Expr::Binary {
+                                                    lhs: Box::new((Expr::Ident( "this".to_string()), 235..239)),
+                                                    op: BinOp::Chain,
+                                                    rhs: Box::new((Expr::Ident( "b".to_string()), 240..241))
+                                                }, 235..241)),
+                                            op: BinOp::Assign,
+                                            rhs: Box::new((Expr::Constant(Literal::Float(0.0)), 244..247)),
+                                        }, 235..247)), 
+                                    235..248),
                                     (Stmt::Return((Expr::Ident( "this".to_string()), 268..272)), 261..273),
                                 ],
                             },
@@ -910,17 +923,16 @@ while (a < 10) {
                         rhs: Box::new((Expr::Constant(Literal::Int(10)), 28..30)),
                     }, 23..31),
                     body: vec![
-                        (Stmt::Assign {
-                            to: Field { 
-                                name: "a".to_string(),
-                                child: None
-                         },
-                            value: (Expr::Binary {
-                                lhs: Box::new((Expr::Ident( "a".to_string()), 42..43)),
-                                op: BinOp::Add,
-                                rhs: Box::new((Expr::Constant(Literal::Int(1)), 46..47)),
-                            }, 42..47),
-                        }, 38..48),
+                        (Stmt::Expr((Expr::Binary {
+                                lhs: Box::new((Expr::Ident( "a".to_string()), 38..39)),
+                                op: BinOp::Assign,
+                                rhs: Box::new((Expr::Binary {
+                                    lhs: Box::new((Expr::Ident( "a".to_string()), 42..43)),
+                                    op: BinOp::Add,
+                                    rhs: Box::new((Expr::Constant(Literal::Int(1)), 46..47)),
+                                }, 42..47)),
+                            }, 38..47)), 
+                        38..48),                
                     ],
                 }),
                 17..50
@@ -1035,16 +1047,15 @@ this.x = 0;
         assert_eq!(
             stmts[0],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "a".to_string(), 
-                        child: Some(Box::new(Field {
-                            name: "b".to_string(), 
-                            child: None
-                        }))
-                    },
-                    value: (Expr::Constant(Literal::Int(5)), 7..8),
-                },
+                Stmt::Expr((Expr::Binary {
+                    lhs: Box::new((Expr::Binary {
+                            lhs: Box::new((Expr::Ident( "a".to_string()),1..2)),
+                            op: BinOp::Chain,
+                            rhs: Box::new((Expr::Ident( "b".to_string()), 3..4)),
+                        }, 1..4)),
+                    op: BinOp::Assign,
+                    rhs: Box::new((Expr::Constant( Literal::Int(5)), 7..8)),
+                }, 1..8)),
                 1..9
             )
         );
@@ -1052,19 +1063,23 @@ this.x = 0;
         assert_eq!(
             stmts[1],
             (
-                Stmt::Assign {
-                    to: Field {
-                        name: "a".to_string(),
-                        child: Some(Box::new(Field {
-                            name: "b".to_string(),
-                            child: Some(Box::new(Field {
-                                name: "c".to_string(),
-                                child: Some(Box::new(Field { name:"d".to_string(), child: None}))
-                            }))
-                        }))
-                    },
-                    value: (Expr::Constant(Literal::Int(7)), 20..21),
-                },
+                Stmt::Expr((Expr::Binary {
+                    lhs: Box::new((Expr::Binary {
+                            lhs: Box::new((Expr::Binary { 
+                                    lhs: Box::new((Expr::Binary {
+                                            lhs: Box::new((Expr::Ident( "a".to_string()), 10..11)),
+                                            op: BinOp::Chain,
+                                            rhs: Box::new((Expr::Ident( "b".to_string()), 12..13)),
+                                        }, 10..13)),
+                                    op: BinOp::Chain,
+                                    rhs: Box::new((Expr::Ident( "c".to_string()), 14..15)),
+                                }, 10..15)),
+                            op: BinOp::Chain,
+                            rhs: Box::new((Expr::Ident( "d".to_string()), 16..17)),
+                        }, 10..17)),
+                    op: BinOp::Assign,
+                    rhs: Box::new((Expr::Constant( Literal::Int(7)), 20..21)),
+                }, 10..21)),
                 10..22
             )
         );
@@ -1072,16 +1087,16 @@ this.x = 0;
         assert_eq!(
             stmts[2],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name:"this".to_string(), 
-                        child: Some(Box::new(Field {
-                            name: "x".to_string(),
-                            child: None
-                        }))
-                    },
-                    value: (Expr::Constant(Literal::Int(0)), 32..33),
-                },
+
+                Stmt::Expr((Expr::Binary {
+                    lhs: Box::new((Expr::Binary {
+                        lhs: Box::new((Expr::Ident( "this".to_string()), 23..27)),
+                        op: BinOp::Chain,
+                        rhs: Box::new((Expr::Ident( "x".to_string()), 28..29)),
+                    }, 23..29)),
+                    op: BinOp::Assign,
+                    rhs: Box::new((Expr::Constant( Literal::Int(0)), 32..33)),
+                }, 23..33)),
                 23..34
             )
         );
@@ -1103,40 +1118,37 @@ a = -1 + 2;
         assert_eq!(
             stmts[0],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "a".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Binary {
-                        lhs: Box::new((Expr::Constant(Literal::Int(1)), 5..6)), 
-                        op: BinOp::Add, 
-                        rhs: Box::new((Expr::Constant(Literal::Int(2)), 9..10))
-                    }, 5..10)
-                },
+
+                Stmt::Expr((Expr::Binary {
+                    lhs: Box::new((Expr::Ident( "a".to_string()), 1..2)),
+                    op: BinOp::Assign,
+                    rhs: Box::new((Expr::Binary {
+                            lhs: Box::new((Expr::Constant(Literal::Int(1)), 5..6)),
+                            op: BinOp::Add,
+                            rhs: Box::new((Expr::Constant(Literal::Int(2)), 9..10)),
+                        }, 5..10)),
+                    }, 1..10)),
                 1..11
-            ) 
+            )
         );
 
         // ((1 + 2) + 3)
         assert_eq!(
             stmts[1],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "b".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Binary {
-                        lhs: Box::new((Expr::Binary {
-                            lhs: Box::new((Expr::Constant(Literal::Int(1)), 16..17)), 
+                Stmt::Expr((Expr::Binary {
+                        lhs: Box::new((Expr::Ident("b".to_string()), 12..13)),
+                        op: BinOp::Assign,
+                        rhs: Box::new((Expr::Binary {
+                            lhs: Box::new((Expr::Binary {
+                                lhs: Box::new((Expr::Constant(Literal::Int(1)), 16..17)), 
+                                op: BinOp::Add, 
+                                rhs: Box::new((Expr::Constant(Literal::Int(2)), 20..21)), 
+                            }, 16..21)),
                             op: BinOp::Add, 
-                            rhs: Box::new((Expr::Constant(Literal::Int(2)), 20..21)), 
-                        }, 16..21)),
-                        op: BinOp::Add, 
-                        rhs: Box::new((Expr::Constant(Literal::Int(3)), 24..25))
-                    }, 16..25),
-                },
+                            rhs: Box::new((Expr::Constant(Literal::Int(3)), 24..25))
+                        }, 16..25)),
+                    }, 12..25)),
                 12..26
             ) 
         );
@@ -1145,12 +1157,10 @@ a = -1 + 2;
         assert_eq!(
             stmts[2],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "c".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Binary {
+                Stmt::Expr((Expr::Binary{
+                    lhs: Box::new((Expr::Ident("c".to_string()), 27..28)),
+                    op: BinOp::Assign,
+                    rhs: Box::new((Expr::Binary {
                         lhs: Box::new((Expr::Binary {
                             lhs: Box::new((Expr::Constant(Literal::Int(1)), 31..32)), 
                             op: BinOp::Sub, 
@@ -1166,8 +1176,9 @@ a = -1 + 2;
                         }, 31..44)),
                         op: BinOp::Add,
                         rhs: Box::new((Expr::Constant(Literal::Int(2)), 47..48)),
-                    },31..48),
-                }, 
+                    },31..48)),
+                }, 27..48)),
+
                 27..49
             )
         );
@@ -1176,12 +1187,10 @@ a = -1 + 2;
         assert_eq!(
             stmts[3],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "d".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Binary {
+                Stmt::Expr((Expr::Binary {
+                    lhs: Box::new((Expr::Ident("d".to_string()), 50..51)),
+                    op: BinOp::Assign,
+                    rhs: Box::new((Expr::Binary {
                         lhs: Box::new((Expr::Binary {
                             lhs: Box::new((Expr::Binary {
                                 lhs: Box::new((Expr::Binary {
@@ -1201,8 +1210,8 @@ a = -1 + 2;
                         }, 54..75)),
                         op: BinOp::Add,
                         rhs: Box::new((Expr::Constant(Literal::Int(3)), 78..79)),
-                    }, 54..79),
-                },
+                    }, 54..79)),
+                }, 50..79)),
                 50..80
             )
         );
@@ -1211,20 +1220,18 @@ a = -1 + 2;
         assert_eq!(
             stmts[4],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "a".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Binary {
+                Stmt::Expr((Expr::Binary {
+                    lhs: Box::new((Expr::Ident("a".to_string()), 81..82)),
+                    op: BinOp::Assign,
+                    rhs: Box::new((Expr::Binary {
                         lhs: Box::new((Expr::Unary {
                             op: UnOp::Neg,
                             rhs: Box::new((Expr::Constant(Literal::Int(1)), 86..87)),
                         }, 85..87)), 
                         op: BinOp::Add, 
                         rhs: Box::new((Expr::Constant(Literal::Int(2)), 90..91))
-                    }, 85..91)
-                },
+                    }, 85..91))
+                }, 81..91)),
                 81..92
             ) 
         );
@@ -1233,10 +1240,10 @@ a = -1 + 2;
     #[test]
     fn test_function_calls() {
         let src = "
-a = foo();
-b = foo(a);
-c = foo(a+b);
-c = foo(a, b);
+foo();
+foo(a);
+foo(a+b);
+foo(a, b);
 ";
 
         let stmts = parse_from(src);
@@ -1245,79 +1252,55 @@ c = foo(a, b);
         assert_eq!(
             stmts[0],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "a".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Call {
-                        fun: Box::new((Expr::Ident( "foo".to_string()), 5..8)), 
+                Stmt::Expr((Expr::Call {
+                        fun: Box::new((Expr::Ident( "foo".to_string()), 1..4)), 
                         args: vec![],
-                    }, 5..10)
-                }, 
-                1..11
+                    }, 1..6)),
+                1..7
             ) 
         );
 
         assert_eq!(
             stmts[1],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "b".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Call {
-                        fun: Box::new((Expr::Ident( "foo".to_string()), 16..19)), 
+                Stmt::Expr((Expr::Call {
+                        fun: Box::new((Expr::Ident( "foo".to_string()), 8..11)), 
                         args: vec![
-                            (Expr::Ident( "a".to_string()), 20..21),
+                            (Expr::Ident( "a".to_string()), 12..13),
                         ],
-                    }, 16..22)
-                }, 
-                12..23
+                    }, 8..14)),
+                8..15
             ) 
         );
 
         assert_eq!(
             stmts[2],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "c".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Call {
-                        fun: Box::new((Expr::Ident( "foo".to_string()), 28..31)), 
+                Stmt::Expr((Expr::Call {
+                        fun: Box::new((Expr::Ident( "foo".to_string()), 16..19)), 
                         args: vec![
                             (Expr::Binary {
-                                lhs: Box::new((Expr::Ident( "a".to_string()), 32..33)), 
+                                lhs: Box::new((Expr::Ident( "a".to_string()), 20..21)), 
                                 op: BinOp::Add, 
-                                rhs: Box::new((Expr::Ident( "b".to_string()), 34..35)), 
-                            }, 32..35),
+                                rhs: Box::new((Expr::Ident( "b".to_string()), 22..23)), 
+                            }, 20..23),
                         ],
-                    }, 28..36)
-                }, 
-                24..37
+                    }, 16..24)),
+                16..25
             ) 
         );
 
         assert_eq!(
             stmts[3],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "c".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Call {
-                        fun: Box::new((Expr::Ident( "foo".to_string()), 42..45)), 
+                Stmt::Expr((Expr::Call {
+                        fun: Box::new((Expr::Ident( "foo".to_string()), 26..29)), 
                         args: vec![
-                            (Expr::Ident( "a".to_string()), 46..47),
-                            (Expr::Ident( "b".to_string()), 49..50),
+                            (Expr::Ident( "a".to_string()), 30..31),
+                            (Expr::Ident( "b".to_string()), 33..34),
                         ],
-                    }, 42..51)
-                }, 
-                38..52
+                    }, 26..35)),
+                26..36
             ) 
         );
 
@@ -1326,7 +1309,12 @@ c = foo(a, b);
     #[test]
     fn test_boolean_exp() {
         let src = "
-a = true; b = false; c = a && b; d = a || b; e = !a; f = true || !false && a;
+true;
+false;
+a && b;
+a || b;
+!a;
+true || !false && a;
 ";
 
         let stmts = parse_from(src);
@@ -1335,106 +1323,70 @@ a = true; b = false; c = a && b; d = a || b; e = !a; f = true || !false && a;
         assert_eq!(
             stmts[0],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "a".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Constant(Literal::Bool(true)), 5..9),
-                },
-                1..10
+                Stmt::Expr((Expr::Constant(Literal::Bool(true)), 1..5)),
+                1..6
             )
         );
 
         assert_eq!(
             stmts[1],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "b".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Constant(Literal::Bool(false)), 15..20),
-                },
-                11..21
+                Stmt::Expr((Expr::Constant(Literal::Bool(false)), 7..12)),
+                7..13
             )
         );
 
         assert_eq!(
             stmts[2],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "c".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Binary {
-                        lhs: Box::new((Expr::Ident( "a".to_string()), 26..27)), 
+                Stmt::Expr((Expr::Binary {
+                        lhs: Box::new((Expr::Ident( "a".to_string()), 14..15)), 
                         op: BinOp::And, 
-                        rhs: Box::new((Expr::Ident( "b".to_string()), 31..32)), 
-                    }, 26..32),
-                },
-                22..33
+                        rhs: Box::new((Expr::Ident( "b".to_string()), 19..20)), 
+                    }, 14..20)),
+                14..21
             )
         );
 
         assert_eq!(
             stmts[3],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "d".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Binary {
-                        lhs: Box::new((Expr::Ident( "a".to_string()), 38..39)), 
+                Stmt::Expr((Expr::Binary {
+                        lhs: Box::new((Expr::Ident( "a".to_string()), 22..23)), 
                         op: BinOp::Or, 
-                        rhs: Box::new((Expr::Ident( "b".to_string()), 43..44)), 
-                    }, 38..44),
-                },
-                34..45
+                        rhs: Box::new((Expr::Ident( "b".to_string()), 27..28)), 
+                    }, 22..28)),
+                22..29
             )
         );
 
         assert_eq!(
             stmts[4],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "e".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Unary {
+                Stmt::Expr((Expr::Unary {
                         op: UnOp::Not,
-                        rhs: Box::new((Expr::Ident( "a".to_string()), 51..52)),
-                    }, 50..52),
-                },
-                46..53
+                        rhs: Box::new((Expr::Ident( "a".to_string()), 31..32)),
+                    }, 30..32)),
+                30..33
             )
         );
 
         assert_eq!(
             stmts[5],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "f".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Binary {
-                        lhs: Box::new((Expr::Constant(Literal::Bool(true)), 58..62)), 
+                Stmt::Expr((Expr::Binary {
+                        lhs: Box::new((Expr::Constant(Literal::Bool(true)), 34..38)), 
                         op: BinOp::Or, 
                         rhs: Box::new((Expr::Binary {
                             lhs: Box::new((Expr::Unary {
-                                op: UnOp::Not,
-                                rhs: Box::new((Expr::Constant(Literal::Bool(false)), 67..72)),
-                            }, 66..72)), 
+                                    op: UnOp::Not,
+                                    rhs: Box::new((Expr::Constant(Literal::Bool(false)), 43..48)),
+                                }, 42..48)), 
                             op: BinOp::And, 
-                            rhs: Box::new((Expr::Ident("a".to_string()), 76..77)), 
-                        }, 66..77)), 
-                    }, 58..77),
-                },
-                54..78
+                            rhs: Box::new((Expr::Ident("a".to_string()), 52..53)), 
+                        }, 42..53)), 
+                    }, 34..53)),
+                34..54
             )
         );
     }
@@ -1442,8 +1394,8 @@ a = true; b = false; c = a && b; d = a || b; e = !a; f = true || !false && a;
     #[test]
     fn test_chain_exp() {
         let src = "
-a = foo.a.b;
-foo = Foo.new();
+foo.a.b;
+Foo.new();
 ";
 
         let stmts = parse_from(src);
@@ -1453,39 +1405,32 @@ foo = Foo.new();
         assert_eq!(
             stmts[0],
             (
-                Stmt::Assign {
-                    to: Field { 
-                        name: "a".to_string(),
-                        child: None
-                    },
-                    value: (Expr::Binary {
+                Stmt::Expr((Expr::Binary {
                         lhs: Box::new((Expr::Binary {
-                                lhs: Box::new((Expr::Ident( "foo".to_string()), 5..8)), 
+                                lhs: Box::new((Expr::Ident( "foo".to_string()), 1..4)), 
                                 op: BinOp::Chain, 
-                                rhs: Box::new((Expr::Ident( "a".to_string()), 9..10)), 
-                            }, 5..10)), 
+                                rhs: Box::new((Expr::Ident( "a".to_string()), 5..6)), 
+                            }, 1..6)), 
                         op: BinOp::Chain, 
-                        rhs: Box::new((Expr::Ident( "b".to_string()), 11..12)), 
-                    }, 5..12),
-                },
-                1..13
+                        rhs: Box::new((Expr::Ident( "b".to_string()), 7..8)), 
+                    }, 1..8)),
+                1..9
             )
         );
 
         assert_eq!(
             stmts[1],
             (
-                Stmt::Assign { 
-                    to: Field { name: "foo".to_string(), child: None }, 
-                    value: (Expr::Binary { 
-                        lhs: Box::new((Expr::Ident("Foo".to_string()), 20..23)), 
+                Stmt::Expr((Expr::Binary { 
+                        lhs: Box::new((Expr::Ident("Foo".to_string()), 10..13)), 
                         op: BinOp::Chain, 
                         rhs: Box::new((Expr::Call { 
-                            fun: Box::new((Expr::Ident("new".to_string()), 24..27)), 
+                            fun: Box::new((Expr::Ident("new".to_string()), 14..17)), 
                             args: vec![]
-                        }, 24..29)) 
-                    }, 20..29) 
-                }, 14..30)
+                        }, 14..19)) 
+                    }, 10..19)),
+                10..20
+            )
         );
     }
     #[test]
