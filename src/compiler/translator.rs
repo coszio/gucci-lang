@@ -1,41 +1,39 @@
-use std::{fmt::Display, io::{BufWriter, Write}, sync::Mutex};
+use std::{fmt::Display, io::{BufWriter, Write}, sync::Mutex, collections::HashMap};
 
 use lazy_static::lazy_static;
 
 use crate::{directory::{Dir, self, Key}, compiler::parser::ast::Loop};
 
-use super::{parser::ast::{Decl, Expr, Literal, Type, Stmt, Block}, semantics::{item::{Item, Kind}, Scope}};
-
-// #[derive(Debug, Clone)]
-// struct Constant {
-//   id: String,
-//   value: Literal,
-// }
-// impl Constant {
-//   fn new(id: String, value: Literal) -> Self {
-//     Constant {
-//       id,
-//       value,
-//     }
-//   }
-// }
-// impl Key for Constant {
-//     fn key(&self) -> &str {
-//         &self.id
-//     }
-// }
+use super::{parser::ast::{Decl, Expr, Literal, Type, Stmt, Block, Fun}, semantics::{item::{Item, Kind}, Scope}};
 
 lazy_static! {
-  static ref ID_COUNTER: Mutex<usize> = Mutex::new(0);
+  static ref TEMP_COUNTER: Mutex<usize> = Mutex::new(0);
+  static ref CONST_COUNTER: Mutex<usize> = Mutex::new(0);
+  static ref FUN_COUNTER: Mutex<usize> = Mutex::new(0);
+}
+const W: usize = 14;
+
+fn reset_counters() {
+  *TEMP_COUNTER.lock().unwrap() = 0;
+  *CONST_COUNTER.lock().unwrap() = 0;
+  *FUN_COUNTER.lock().unwrap() = 0;
 }
 
-fn reset_id() {
-  *ID_COUNTER.lock().unwrap() = 0;
+fn new_temp() -> String {
+  let mut counter = TEMP_COUNTER.lock().unwrap();
+  let id = format!("t{}", counter);
+  *counter += 1;
+  id
 }
-
-fn new_id() -> String {
-  let mut counter = ID_COUNTER.lock().unwrap();
-  let id = format!("{}", counter);
+fn new_const() -> String {
+  let mut counter = CONST_COUNTER.lock().unwrap();
+  let id = format!("c{}", counter);
+  *counter += 1;
+  id
+}
+fn new_fun() -> String {
+  let mut counter = FUN_COUNTER.lock().unwrap();
+  let id = format!("f{}", counter);
   *counter += 1;
   id
 }
@@ -61,40 +59,82 @@ impl Quad {
 
 impl Display for Quad {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let w = 15;
-      write!(f, "{:^w$},{:^w$},{:^w$},{:^w$}", self.op, self.arg1, self.arg2, self.arg3)
+      write!(f, "{:^W$},{:^W$},{:^W$},{:^W$}", self.op, self.arg1, self.arg2, self.arg3)
   }
 }
 
 #[derive(Debug, Clone)]
-pub struct Quadruples(Vec<Quad>);
-impl Display for Quadruples {
+struct Function {
+  id: String,
+  // name: String,
+  pointer: usize,
+  params: Vec<(String, Type)>,
+  ret_type: Option<Type>,
+}
+impl Function {
+  fn size(&self) -> usize {
+    self.params.iter().map(|(_, t)| t.size()).sum()
+  }
+}
+impl Display for Function {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{:^W$},{:^W$}", self.id, self.pointer)?;
+    Ok(())
+  }
+}
+
+#[derive(Debug, Clone)]
+struct Const {
+  id: String,
+  literal: Literal,
+}
+impl Display for Const {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{:^W$}, {:^W$}, {:^W$}", "CONST", self.id, self.literal)
+  }
+}
+#[derive(Clone)]
+pub struct BigSheep {
+  funcs: Vec<Function>,
+  consts: Vec<Const>,
+  quads: Vec<Quad>,
+}
+impl BigSheep {
+  fn new() -> Self {
+    BigSheep {
+      funcs: Vec::new(),
+      consts: Vec::new(),
+      quads: Vec::new(),
+    }
+  }
+}
+impl Display for BigSheep {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     
-    for (i, quad) in self.0.iter().enumerate() {
+    for func in &self.funcs {
+      write!(f, "{}\n", func)?;
+    }
+    write!(f, "%%\n")?;
+    for const_ in &self.consts {
+      write!(f, "{}\n", const_)?;
+    }
+    write!(f, "%%\n")?;
+    for (i, quad) in self.quads.iter().enumerate() {
       write!(f, "{:>4} {}\n", i, quad)?;
     }
 
     Ok(())
   }
 }
-// fn map_dir_errs(err: directory::Error) -> Error {
-//     match err {
-//         directory::Error::Nonexistent(key) => Error::Nonexistent(key),
-//         directory::Error::Duplicate(key) => Error::Duplicate(key),
-//     }
-//   }
 
-fn translate_expr(output: &mut Vec<Quad>, expr: Expr) -> String {
+
+fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
   match expr {
     Expr::Binary { lhs, op, rhs } => {
       let lhs_res = translate_expr(output, lhs.0);
       let rhs_res = translate_expr(output, rhs.0);
-  
-      // let lhs_res = lhs.last().unwrap().arg3;
-      // let rhs_res = rhs.last().unwrap().arg3;
 
-      let dest = format!("t{}", new_id());
+      let dest = new_temp();
       
       let this = Quad {
         op: op.to_string(),
@@ -103,19 +143,53 @@ fn translate_expr(output: &mut Vec<Quad>, expr: Expr) -> String {
         arg3: dest.clone(),
       };
 
-      output.push(this);
+      output.quads.push(this);
 
       dest
     }
     Expr::Ident(name) => name,
-    Expr::Constant(literal) => literal.to_string(),
+    Expr::Constant(literal) => {
+
+      let id = new_const();
+
+      output.consts.push(Const {
+        id: id.clone(),
+        literal,
+      });
+
+      id
+    },
 
     Expr::Error => todo!(),
-    Expr::Call { fun, args } => todo!(),
+    Expr::Call { fun, args } => {
+      let fun_id = match fun.0 {
+        Expr::Ident(id) => id,
+        _ => panic!("Expected function name"),
+      };
+
+      let func = output.funcs.iter().find(|f| f.id == fun_id).unwrap().clone();
+
+      for (i, arg) in args.iter().enumerate() {
+        let arg_id = translate_expr(output, arg.0.clone());
+        let par_id = format!("p{}", i);
+        output.quads.push(Quad {
+          op: "=".to_string(),
+          arg1: arg_id,
+          arg2: "".to_string(),
+          arg3: par_id,
+        });
+      }
+
+      output.quads.push(Quad::new("GOSUB", "", &func.pointer.to_string(), ""));
+
+      let ret_address = output.quads[func.pointer].arg3.clone();
+
+      ret_address
+    },
     Expr::Unary { op, rhs } => {
       let rhs_res = translate_expr(output, rhs.0);
 
-      let dest = format!("t{}", new_id());
+      let dest = new_temp();
 
       let this = Quad {
         op: op.to_string(),
@@ -124,7 +198,7 @@ fn translate_expr(output: &mut Vec<Quad>, expr: Expr) -> String {
         arg3: dest.clone(),
       };
 
-      output.push(this);
+      output.quads.push(this);
 
       dest
     },
@@ -134,7 +208,7 @@ fn translate_expr(output: &mut Vec<Quad>, expr: Expr) -> String {
   }
 }
 
-fn translate_stmt(output: &mut Vec<Quad>, stmt: Stmt) -> String {
+fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
    
   match stmt {
     Stmt::Decl(decl) => match decl {
@@ -150,7 +224,7 @@ fn translate_stmt(output: &mut Vec<Quad>, stmt: Stmt) -> String {
               arg3: name.clone(),
             };
 
-            output.push(quad);
+            output.quads.push(quad);
 
             name
           }
@@ -158,24 +232,87 @@ fn translate_stmt(output: &mut Vec<Quad>, stmt: Stmt) -> String {
             todo!();
           }
         },
-        Decl::Fun(_) => todo!(),
+        Decl::Fun(Fun { name, params, ret_type, body }) => {
+          
+          // skip function if reading from before
+          output.quads.push(Quad::new("GOTO", "", "", ""));
+          let goto_ptr = output.quads.len() - 1;
+          
+          // declare new Function
+          let mut fun = Function {
+            id: new_fun(),
+            // name: name.clone(),
+            pointer: output.quads.len(),
+            params: Vec::new(),
+            ret_type: ret_type.clone(),
+          };
+
+          // setup return
+          let mut ret_dest: String = String::new();
+          if let Some(_) = ret_type {
+            let dest = new_temp();
+            output.quads.push(Quad::new("RETURN", "", "", &dest));
+            ret_dest = dest;
+          }
+
+          output.quads.push(Quad::new("BEGINBLOCK", "", "", ""));
+
+          // allocate resources
+          for (param, _) in params.iter() {
+             fun.params.push((param.name.clone(), param.type_.clone()));
+          }
+          output.quads.push(Quad::new("ERA", &(*fun.size().to_string()), "", ""));
+
+          for (i, (name, _)) in fun.params.iter().enumerate() {
+            output.quads.push(Quad {
+              op: "PARAM".to_string(), 
+              arg1: format!("p{i}"), 
+              arg2: "".to_string(), 
+              arg3: name.clone(),
+            });
+          }
+
+          output.funcs.push(fun);
+
+          // generate quads
+          for (stmt, _) in body {
+            match stmt {
+              Stmt::Return((expr, _)) => {
+                let expr_id = translate_expr(output, expr);
+                output.quads.push(Quad::new("=", &expr_id, "", &ret_dest));
+                break;
+              },
+              _ => translate_stmt(output, stmt),
+            };
+          }
+
+          // end function
+          output.quads.push(Quad{
+            op: "ENDBLOCK".to_string(),
+            arg1: "".to_string(),
+            arg2: "".to_string(),
+            arg3: "".to_string(),
+          });
+          output.quads[goto_ptr].arg2 = output.quads.len().to_string(); // set GOTO to point to end of function
+          "".to_string()
+        },
         Decl::Class { name, inherits, implements, has, does } => todo!(),
         Decl::Interface { name, should_do } => todo!(),
     },
-    Stmt::Assign { to, value } => {
-      let value_id = translate_expr(output, value.0);
+    // Stmt::Assign { to, value } => {
+    //   let value_id = translate_expr(output, value.0);
 
-      let quad = Quad {
-        op: "=".to_string(),
-        arg1: value_id,
-        arg2: "".to_string(),
-        arg3: to.to_string(),
-      };
+    //   let quad = Quad {
+    //     op: "=".to_string(),
+    //     arg1: value_id,
+    //     arg2: "".to_string(),
+    //     arg3: to.to_string(),
+    //   };
 
-      output.push(quad);
+    //   output.quads.push(quad);
 
-      to.to_string()
-    },
+    //   to.to_string()
+    // },
     Stmt::Cond { if_, then, elif, else_ } => {
 
       // ifs and else-ifs are handled in the same way
@@ -193,8 +330,8 @@ fn translate_stmt(output: &mut Vec<Quad>, stmt: Stmt) -> String {
           arg3: "".to_string(),
         };
         
-        output.push(gotof_quad);
-        let if_pointer = output.len() - 1; // GOTOF instruction index
+        output.quads.push(gotof_quad);
+        let if_pointer = output.quads.len() - 1; // GOTOF instruction index
 
         // translate inner block
         for (stmt, _) in then {
@@ -208,12 +345,12 @@ fn translate_stmt(output: &mut Vec<Quad>, stmt: Stmt) -> String {
           arg3: "".to_string(),
         };
         
-        output.push(goto_end);
-        goto_pointers.push(output.len() - 1); // we need to update the goto location when we finish the else
+        output.quads.push(goto_end);
+        goto_pointers.push(output.quads.len() - 1); // we need to update the goto location when we finish the else
         
-        let end_if_pointer = output.len(); // next instruction index
+        let end_if_pointer = output.quads.len(); // next instruction index
 
-        output[if_pointer].arg2 = format!("{}", end_if_pointer);
+        output.quads[if_pointer].arg2 = end_if_pointer.to_string();
       }
 
       if let Some(else_) = else_ {
@@ -223,7 +360,7 @@ fn translate_stmt(output: &mut Vec<Quad>, stmt: Stmt) -> String {
       }
 
       for goto in goto_pointers {
-        output[goto].arg2 = format!("{}", output.len()); // update the goto location
+        output.quads[goto].arg2 = format!("{}", output.quads.len()); // update the goto location
       }
 
       "".to_string()
@@ -231,7 +368,7 @@ fn translate_stmt(output: &mut Vec<Quad>, stmt: Stmt) -> String {
     Stmt::Loop(loop_) => match loop_ {
       Loop::While { cond, body } => {
 
-        let cond_pointer = output.len(); // we need to reevaluate the expression after the loop
+        let cond_pointer = output.quads.len(); // we need to reevaluate the expression after the loop
         let condition_id = translate_expr(output, cond.0);
 
         let gotof_quad = Quad {
@@ -241,8 +378,8 @@ fn translate_stmt(output: &mut Vec<Quad>, stmt: Stmt) -> String {
           arg3: "".to_string(),
         };
 
-        output.push(gotof_quad);
-        let gotof_pointer = output.len() - 1; // GOTOF instruction index
+        output.quads.push(gotof_quad);
+        let gotof_pointer = output.quads.len() - 1; // GOTOF instruction index
 
         // translate inner block
         for (stmt, _) in body {
@@ -256,36 +393,36 @@ fn translate_stmt(output: &mut Vec<Quad>, stmt: Stmt) -> String {
           arg2: cond_pointer.to_string(),
           arg3: "".to_string(),
         };
-        output.push(goto_cond);
+        output.quads.push(goto_cond);
 
-        output[gotof_pointer].arg2 = format!("{}", output.len()); // update the gotof location to exit the loop
+        output.quads[gotof_pointer].arg2 = output.quads.len().to_string(); // update the gotof location to exit the loop
         "".to_string()
       },
     },
     Stmt::Expr((expr, _)) => translate_expr(output, expr),
-    Stmt::Return(_) => todo!(),
+    Stmt::Return((expr, _)) => translate_expr(output, expr),
     Stmt::Error => unreachable!(),
   }
 }
 
-pub(crate) fn translate(stmts: Block) -> Result<Quadruples, ()> {
+pub(crate) fn translate(stmts: Block) -> Result<BigSheep, ()> {
   
-  reset_id();
+  reset_counters();
 
-  let mut output = Vec::new();
+  let mut output = BigSheep::new();
 
   for (stmt, _) in stmts {
     let _ = translate_stmt(&mut output, stmt);
   }
     
-  output.push(Quad {
+  output.quads.push(Quad {
     op: "END".to_string(),
     arg1: "".to_string(),
     arg2: "".to_string(),
     arg3: "".to_string(),
   });
 
-  let result = Quadruples(output);
+  let result = output;
 
   Ok(result)
 }
@@ -294,27 +431,40 @@ mod tests {
 
   use chumsky::{Parser, Stream};
 
-use crate::compiler::{parser::{ast::BinOp, parser}, lexer::lexer, semantics};
+use crate::compiler::{parser::{parser}, lexer::lexer, semantics};
 
   use super::*;
 
-  fn translate_from_src(src: &str) -> Result<Quadruples, ()> {
+  fn translate_from_src(src: &str) -> Result<BigSheep, ()> {
     let tokens = lexer().parse(src).unwrap();
     let len = tokens.len();
     let token_stream = Stream::from_iter(len..len + 1, tokens.into_iter());
     let ast = parser().parse(token_stream).unwrap();
 
-    if let Err(errs) = semantics::semantic_analysis(ast.clone()) {
-        println!("semantic errors: {:?}", errs);
-        return Err(());
+
+    match semantics::semantic_analysis(ast.clone()) {
+      Ok(ast) => {
+        let res = translate(ast).unwrap();
+        println!("{}", res);
+        Ok(res)
+      },
+      Err(errs) => {
+        println!("semantic errors found: {:?}", errs);
+        Err(())
+      }
     }
+
+    // if let Err(errs) = semantics::semantic_analysis(ast.clone()) {
+    //     println!("semantic errors: {:?}", errs);
+    //     return Err(());
+    // }
         
     // Translate only if there were no semantic errors
-    let res = translate(ast).unwrap();
+    // let res = translate(ast).unwrap();
 
-    println!("{}", res.clone());
+    // println!("{}", res.clone());
 
-    Ok(res)
+    // Ok(res)
   }
 
   #[test]
@@ -323,16 +473,36 @@ use crate::compiler::{parser::{ast::BinOp, parser}, lexer::lexer, semantics};
       1 + 2 * 3 || 4 / 5 && 6 > 7;
       ";
 
-    let Quadruples(quads) = translate_from_src(src).unwrap();
+    let BigSheep { funcs, consts, quads } = translate_from_src(src).unwrap();
 
     assert_eq!(quads.len(), 7);
     
-    assert_eq!(quads[0], Quad::new("MUL", "i:2", "i:3", "t0"));
-    assert_eq!(quads[1], Quad::new("ADD", "i:1", "t0", "t1"));
-    assert_eq!(quads[2], Quad::new("DIV", "i:4", "i:5", "t2"));
-    assert_eq!(quads[3], Quad::new("GT", "i:6", "i:7", "t3"));
+    assert_eq!(quads[0], Quad::new("MUL", "c1", "c2", "t0"));
+    assert_eq!(quads[1], Quad::new("ADD", "c0", "t0", "t1"));
+    assert_eq!(quads[2], Quad::new("DIV", "c3", "c4", "t2"));
+    assert_eq!(quads[3], Quad::new("GT", "c5", "c6", "t3"));
     assert_eq!(quads[4], Quad::new("AND", "t2", "t3", "t4"));
     assert_eq!(quads[5], Quad::new("OR", "t1", "t4", "t5"));
+  }
+
+  #[test]
+  fn test_assignment() {
+    let src = "
+      let a: int = 1;
+      let b: int = a + 2;
+      let c: int = b * 3;
+      ";
+
+    let BigSheep { funcs, consts, quads } = translate_from_src(src).unwrap();
+
+    // assert_eq!(quads.len(), 6);
+    
+    assert_eq!(quads[0], Quad::new("=", "c0", "", "v0"));
+    assert_eq!(quads[1], Quad::new("ADD", "v0", "c1", "t0"));
+    assert_eq!(quads[2], Quad::new("=", "t0", "", "v1"));
+    assert_eq!(quads[3], Quad::new("MUL", "v1", "c2", "t1"));
+    assert_eq!(quads[4], Quad::new("=", "t1", "", "v2"));
+    assert_eq!(quads[5], Quad::new("END", "", "", ""));
   }
 
   #[test]
@@ -345,15 +515,15 @@ use crate::compiler::{parser::{ast::BinOp, parser}, lexer::lexer, semantics};
       }
       ";
 
-    let Quadruples(quads) = translate_from_src(src).unwrap();
+    let BigSheep { funcs, consts, quads } = translate_from_src(src).unwrap();
 
     assert_eq!(quads.len(), 6);
 
-    assert_eq!(quads[0], Quad::new("GT", "i:1", "i:2", "t0"));
+    assert_eq!(quads[0], Quad::new("GT", "c0", "c1", "t0"));
     assert_eq!(quads[1], Quad::new("GOTOF", "t0", "4", ""));
-    assert_eq!(quads[2], Quad::new("ADD", "i:3", "i:4", "t1"));
+    assert_eq!(quads[2], Quad::new("ADD", "c2", "c3", "t1"));
     assert_eq!(quads[3], Quad::new("GOTO", "", "5", ""));
-    assert_eq!(quads[4], Quad::new("SUB", "i:5", "i:6", "t2"));
+    assert_eq!(quads[4], Quad::new("SUB", "c4", "c5", "t2"));
     assert_eq!(quads[5], Quad::new("END", "", "", ""));
   }
 
@@ -369,19 +539,19 @@ use crate::compiler::{parser::{ast::BinOp, parser}, lexer::lexer, semantics};
       }
       ";
 
-    let Quadruples(quads) = translate_from_src(src).unwrap();
+    let BigSheep { funcs, consts, quads }  = translate_from_src(src).unwrap();
 
     assert_eq!(quads.len(), 10);
 
-    assert_eq!(quads[0], Quad::new("GT",    "i:1", "i:2",  "t0"));
+    assert_eq!(quads[0], Quad::new("GT",    "c0", "c1",  "t0"));
     assert_eq!(quads[1], Quad::new("GOTOF", "t0",  "4",    ""));
-    assert_eq!(quads[2], Quad::new("ADD",   "i:3", "i:4",  "t1"));
+    assert_eq!(quads[2], Quad::new("ADD",   "c2", "c3",  "t1"));
     assert_eq!(quads[3], Quad::new("GOTO",  "",    "9",    ""));
-    assert_eq!(quads[4], Quad::new("GT",    "i:5", "i:6",  "t2"));
+    assert_eq!(quads[4], Quad::new("GT",    "c4", "c5",  "t2"));
     assert_eq!(quads[5], Quad::new("GOTOF", "t2",  "8",    ""));
-    assert_eq!(quads[6], Quad::new("ADD",   "i:7", "i:8",  "t3"));
+    assert_eq!(quads[6], Quad::new("ADD",   "c6", "c7",  "t3"));
     assert_eq!(quads[7], Quad::new("GOTO",  "",    "9",    ""));
-    assert_eq!(quads[8], Quad::new("SUB",   "i:9", "i:10", "t4"));
+    assert_eq!(quads[8], Quad::new("SUB",   "c8", "c9", "t4"));
     assert_eq!(quads[9], Quad::new("END",   "",    "",     ""));
   }
 
@@ -401,23 +571,23 @@ use crate::compiler::{parser::{ast::BinOp, parser}, lexer::lexer, semantics};
       }
       ";
 
-    let Quadruples(quads) = translate_from_src(src).unwrap();
+    let BigSheep { funcs, consts, quads }  = translate_from_src(src).unwrap();
 
     assert_eq!(quads.len(), 14);
 
-    assert_eq!(quads[0], Quad::new("GT",    "i:1",  "i:2",    "t0"));
+    assert_eq!(quads[0], Quad::new("GT",    "c0",  "c1",    "t0"));
     assert_eq!(quads[1], Quad::new("GOTOF", "t0",   "8",      ""));
-    assert_eq!(quads[2], Quad::new("GT",    "i:3",  "i:4",    "t1"));
+    assert_eq!(quads[2], Quad::new("GT",    "c2",  "c3",    "t1"));
     assert_eq!(quads[3], Quad::new("GOTOF", "t1",   "6",      ""));
-    assert_eq!(quads[4], Quad::new("ADD",   "i:5",  "i:6",    "t2"));
+    assert_eq!(quads[4], Quad::new("ADD",   "c4",  "c5",    "t2"));
     assert_eq!(quads[5], Quad::new("GOTO",  "",     "7",      ""));
-    assert_eq!(quads[6], Quad::new("SUB",   "i:7",  "i:8",    "t3"));
+    assert_eq!(quads[6], Quad::new("SUB",   "c6",  "c7",    "t3"));
     assert_eq!(quads[7], Quad::new("GOTO",  "",     "13",     ""));
-    assert_eq!(quads[8], Quad::new("GT",    "f:1.2", "f:2.3", "t4"));
+    assert_eq!(quads[8], Quad::new("GT",    "c8", "c9", "t4"));
     assert_eq!(quads[9], Quad::new("GOTOF", "t4",    "12",    ""));
-    assert_eq!(quads[10], Quad::new("SUB",   "i:9",  "i:10",  "t5"));
+    assert_eq!(quads[10], Quad::new("SUB",   "c10",  "c11",  "t5"));
     assert_eq!(quads[11], Quad::new("GOTO",  "",     "13",    ""));
-    assert_eq!(quads[12], Quad::new("ADD",   "i:11", "i:12",  "t6"));
+    assert_eq!(quads[12], Quad::new("ADD",   "c12", "c13",  "t6"));
     assert_eq!(quads[13], Quad::new("END",   "",     "",      ""));
   }
 
@@ -429,14 +599,59 @@ use crate::compiler::{parser::{ast::BinOp, parser}, lexer::lexer, semantics};
       }
     ";
 
-    let Quadruples(quads) = translate_from_src(src).unwrap();
+    let BigSheep { funcs, consts, quads }  = translate_from_src(src).unwrap();
 
     assert_eq!(quads.len(), 5);
       
-    assert_eq!(quads[0], Quad::new("GT", "i:1", "i:2", "t0"));
+    assert_eq!(quads[0], Quad::new("GT", "c0", "c1", "t0"));
     assert_eq!(quads[1], Quad::new("GOTOF", "t0", "4", ""));
-    assert_eq!(quads[2], Quad::new("ADD", "i:3", "i:4", "t1"));
+    assert_eq!(quads[2], Quad::new("ADD", "c2", "c3", "t1"));
     assert_eq!(quads[3], Quad::new("GOTO", "", "0", ""));
     assert_eq!(quads[4], Quad::new("END", "", "", ""));
+  }
+
+  #[test]
+  fn test_fun_decl() {
+    let src = r#"
+      2 * 3;
+      fun foo(x: int, y: int): string {
+        x + y + 40;
+        return "hello";
+      }
+    "#;
+
+    let BigSheep { funcs, consts, quads }  = translate_from_src(src).unwrap();
+
+    assert_eq!(funcs.len(), 1);
+    assert_eq!(funcs[0].pointer, 2);
+    assert_eq!(funcs[0].params.len(), 2);
+    assert_eq!(funcs[0].params[0].0, "v0");
+    assert_eq!(funcs[0].params[0].1, Type::Int);
+    assert_eq!(funcs[0].params[1].0, "v1");
+    assert_eq!(funcs[0].params[1].1, Type::Int);
+  }
+
+  #[test]
+  fn test_fun_call() {
+    let src = r#"
+      fun foo(x: int, y: int): string {
+        return "hello";
+      }
+      let s: string = foo(1, 2);
+    "#;
+
+    let BigSheep { funcs, consts, quads }  = translate_from_src(src).unwrap();
+
+    // assert_eq!(quads.len(), 5);
+    // assert_eq!(quads[0], Quad::new("FUNC", "2", "2", ""));
+    // assert_eq!(quads[1], Quad::new("PARAM", "v0", "", ""));
+    // assert_eq!(quads[2], Quad::new("PARAM", "v1", "", ""));
+    // assert_eq!(quads[3], Quad::new("CALL", "2", "", ""));
+    // assert_eq!(quads[4], Quad::new("END", "", "", ""));
+
+    assert_eq!(quads[8], Quad::new("=", "c1", "", "p0"));
+    assert_eq!(quads[9], Quad::new("=", "c2", "", "p1"));
+    assert_eq!(quads[10], Quad::new("GOSUB", "", "1", ""));
+    assert_eq!(quads[11], Quad::new("=", "t0", "", "v2"));
   }
 }

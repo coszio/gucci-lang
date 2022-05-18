@@ -17,6 +17,9 @@ impl Display for TypeError {
 }
 
 pub(crate) fn resolve(lhs: &Type, op: &BinOp, rhs: &Type) -> std::result::Result<Type, ()> {
+ if let BinOp::Chain = op {
+    return Ok(rhs.clone());
+ }
   let return_type = match lhs {
     Type::Int => match rhs {
         Type::Int => match op {
