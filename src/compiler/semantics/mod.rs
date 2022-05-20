@@ -11,7 +11,6 @@ use super::{parser::ast::*, semantics::semantic_cube::resolve, lexer::Span};
 
 pub(crate) type Scope = Dir<Item>;
 
-// static mut SCOPE: directory::Scope = directory::Scope::new();
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Error {
   TypeMismatch(String, Type, Type),

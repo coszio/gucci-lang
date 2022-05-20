@@ -1,6 +1,8 @@
 mod compiler;
 mod formatter;
 pub mod utils;
+pub mod shared;
+mod vm;
 
 use std::{fs, env};
 use chumsky::{Parser, Stream};
