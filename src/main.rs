@@ -1,6 +1,5 @@
 mod compiler;
 mod formatter;
-mod directory;
 pub mod utils;
 
 use std::{fs, env};

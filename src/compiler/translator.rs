@@ -2,7 +2,7 @@ use std::{fmt::Display, io::{BufWriter, Write}, sync::Mutex, collections::HashMa
 
 use lazy_static::lazy_static;
 
-use crate::{directory::{Dir, self, Key}, compiler::parser::ast::Loop, utils::lazy_counter::Counter};
+use crate::{utils::directory::{Dir, self, Key}, compiler::parser::ast::Loop, utils::lazy_counter::Counter};
 
 use super::{parser::ast::{Decl, Expr, Literal, Type, Stmt, Block, Fun}, semantics::{item::{Item, Kind}, Scope}};
 

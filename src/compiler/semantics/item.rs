@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{directory::Key, compiler::parser::ast::{Type, Var, Spanned}};
+use crate::{utils::directory::Key, compiler::parser::ast::{Type, Var, Spanned}};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Item { 
@@ -51,7 +51,7 @@ impl Display for Kind {
 #[cfg(test)]
 mod tests {
 
-  use crate::{compiler::semantics::Scope, directory::{ Result, Error }};
+  use crate::{compiler::semantics::Scope, utils::directory::{ Result, Error }};
 
   use super::*;
 
