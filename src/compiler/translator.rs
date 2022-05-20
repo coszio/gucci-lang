@@ -2,40 +2,19 @@ use std::{fmt::Display, io::{BufWriter, Write}, sync::Mutex, collections::HashMa
 
 use lazy_static::lazy_static;
 
-use crate::{directory::{Dir, self, Key}, compiler::parser::ast::Loop};
+use crate::{directory::{Dir, self, Key}, compiler::parser::ast::Loop, utils::lazy_counter::Counter};
 
 use super::{parser::ast::{Decl, Expr, Literal, Type, Stmt, Block, Fun}, semantics::{item::{Item, Kind}, Scope}};
 
 lazy_static! {
-  static ref TEMP_COUNTER: Mutex<usize> = Mutex::new(0);
-  static ref CONST_COUNTER: Mutex<usize> = Mutex::new(0);
-  static ref FUN_COUNTER: Mutex<usize> = Mutex::new(0);
+  static ref TEMP_COUNTER: Counter = Counter::new("t");
+  static ref CONST_COUNTER: Counter = Counter::new("c");
 }
 const W: usize = 14;
 
 fn reset_counters() {
-  *TEMP_COUNTER.lock().unwrap() = 0;
-  *CONST_COUNTER.lock().unwrap() = 0;
-  *FUN_COUNTER.lock().unwrap() = 0;
-}
-
-fn new_temp() -> String {
-  let mut counter = TEMP_COUNTER.lock().unwrap();
-  let id = format!("t{}", counter);
-  *counter += 1;
-  id
-}
-fn new_const() -> String {
-  let mut counter = CONST_COUNTER.lock().unwrap();
-  let id = format!("c{}", counter);
-  *counter += 1;
-  id
-}
-fn new_fun() -> String {
-  let mut counter = FUN_COUNTER.lock().unwrap();
-  let id = format!("f{}", counter);
-  *counter += 1;
-  id
+  TEMP_COUNTER.reset();
+  CONST_COUNTER.reset();
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -66,7 +45,6 @@ impl Display for Quad {
 #[derive(Debug, Clone)]
 struct Function {
   id: String,
-  // name: String,
   pointer: usize,
   params: Vec<(String, Type)>,
   ret_type: Option<Type>,
@@ -134,7 +112,7 @@ fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
       let lhs_res = translate_expr(output, lhs.0);
       let rhs_res = translate_expr(output, rhs.0);
 
-      let dest = new_temp();
+      let dest = TEMP_COUNTER.new_id();
       
       let this = Quad {
         op: op.to_string(),
@@ -150,7 +128,7 @@ fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
     Expr::Ident(name) => name,
     Expr::Constant(literal) => {
 
-      let id = new_const();
+      let id = CONST_COUNTER.new_id();
 
       output.consts.push(Const {
         id: id.clone(),
@@ -180,16 +158,18 @@ fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
         });
       }
 
-      output.quads.push(Quad::new("GOSUB", "", &func.pointer.to_string(), ""));
+      output.quads.push(Quad::new("GOSUB", &func.id, &func.pointer.to_string(), ""));
 
-      let ret_address = output.quads[func.pointer].arg3.clone();
-
-      ret_address
+      let fun_return = output.quads[func.pointer].arg3.clone();
+      let call_return = TEMP_COUNTER.new_id();
+      
+      output.quads.push(Quad::new("=", &fun_return, "", &call_return.clone()));
+      call_return
     },
     Expr::Unary { op, rhs } => {
       let rhs_res = translate_expr(output, rhs.0);
 
-      let dest = new_temp();
+      let dest = TEMP_COUNTER.new_id();
 
       let this = Quad {
         op: op.to_string(),
@@ -240,8 +220,7 @@ fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
           
           // declare new Function
           let mut fun = Function {
-            id: new_fun(),
-            // name: name.clone(),
+            id: name.clone(),
             pointer: output.quads.len(),
             params: Vec::new(),
             ret_type: ret_type.clone(),
@@ -250,7 +229,7 @@ fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
           // setup return
           let mut ret_dest: String = String::new();
           if let Some(_) = ret_type {
-            let dest = new_temp();
+            let dest = TEMP_COUNTER.new_id();
             output.quads.push(Quad::new("RETURN", "", "", &dest));
             ret_dest = dest;
           }
@@ -642,16 +621,43 @@ use crate::compiler::{parser::{parser}, lexer::lexer, semantics};
 
     let BigSheep { funcs, consts, quads }  = translate_from_src(src).unwrap();
 
-    // assert_eq!(quads.len(), 5);
-    // assert_eq!(quads[0], Quad::new("FUNC", "2", "2", ""));
-    // assert_eq!(quads[1], Quad::new("PARAM", "v0", "", ""));
-    // assert_eq!(quads[2], Quad::new("PARAM", "v1", "", ""));
-    // assert_eq!(quads[3], Quad::new("CALL", "2", "", ""));
-    // assert_eq!(quads[4], Quad::new("END", "", "", ""));
-
     assert_eq!(quads[8], Quad::new("=", "c1", "", "p0"));
     assert_eq!(quads[9], Quad::new("=", "c2", "", "p1"));
     assert_eq!(quads[10], Quad::new("GOSUB", "", "1", ""));
     assert_eq!(quads[11], Quad::new("=", "t0", "", "v2"));
+  }
+
+  #[test]
+  fn test_recursive_call() {
+
+      let src = r#"
+        fun fibonacci(n: int): int {
+          let ans: int = 0;
+          if n == 1 {
+            ans = 1;
+          } else if n > 1 {
+            ans = fibonacci(n - 1) + fibonacci(n - 2);
+          }
+          return ans;
+        }"#;
+
+      let BigSheep { funcs, consts, quads }  = translate_from_src(src).unwrap();
+
+      assert_eq!(quads.len(), 13);
+      assert_eq!(quads[0], Quad::new("FUNC", "2", "2", ""));
+      assert_eq!(quads[1], Quad::new("PARAM", "v0", "", ""));
+      assert_eq!(quads[2], Quad::new("IF", "c0", "", ""));
+      assert_eq!(quads[3], Quad::new("=", "c1", "", "p0"));
+      assert_eq!(quads[4], Quad::new("GOTO", "", "6", ""));
+      assert_eq!(quads[5], Quad::new("=", "c2", "", "p1"));
+      assert_eq!(quads[6], Quad::new("GOTO", "", "8", ""));
+      assert_eq!(quads[7], Quad::new("=", "c3", "", "p2"));
+      assert_eq!(quads[8], Quad::new("GOTO", "", "10", ""));
+      assert_eq!(quads[9], Quad::new("=", "c4", "", "p3"));
+      assert_eq!(quads[10], Quad::new("GOTO", "", "12", ""));
+      assert_eq!(quads[11], Quad::new("=", "c5", "", "p4"));
+      assert_eq!(quads[12], Quad::new("END", "", "", ""));
+
+      
   }
 }

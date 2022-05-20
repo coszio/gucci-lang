@@ -182,9 +182,16 @@ pub(crate) fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<Spa
 
         Decl::Fun(Fun { name, mut params, ret_type, mut body }) => {
 
+          let new_fun = Item { 
+            id: FUN_COUNTER.new_id(), 
+            name: name.clone(), 
+            kind: Kind::Fun(params.clone()), 
+            type_: ret_type.clone(),
+          };
+
+          scope.create(new_fun.clone()).map_err(|e| (map_dir_errs(e), span.clone()))?;
+
           let mut subscope = scope.add_child();
-          
-          let orig_params = params.clone();
 
           for param in params.iter_mut() {
             let new_item = Item::new(
@@ -216,17 +223,8 @@ pub(crate) fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<Spa
           }
 
           *scope = subscope.drop();
-          let new_item = Item { 
-            id: FUN_COUNTER.new_id(), 
-            name: name.clone(), 
-            kind: Kind::Fun(orig_params), 
-            type_: ret_type.clone(),
-          };
 
-
-          scope.create(new_item.clone()).map_err(|e| (map_dir_errs(e), span.clone()))?;
-
-          let name = new_item.id.clone();
+          let name = new_fun.id.clone();
 
           Ok((Stmt::Decl(Decl::Fun(Fun { name, params, ret_type, body })), span))
         },
