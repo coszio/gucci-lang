@@ -462,7 +462,7 @@ mod tests {
     #[serial]
     fn test_expressions() {
         let src = "
-      1 + 2 * 3 || 4 / 5 && 6 > 7;
+      1 + 2 * (-3) || 4 / 5 && 6 > 7;
       ";
 
         let BigSheep {
@@ -471,31 +471,35 @@ mod tests {
             quads,
         } = translate_from_src(src).unwrap();
 
-        assert_eq!(quads.len(), 7);
+        assert_eq!(quads.len(), 8);
 
         assert_eq!(
             quads[0],
-            Quad::new(OpCode::Mul, "c1", "c2", "t0")
+            Quad::new(OpCode::Neg, "c2", "", "t0")
         );
         assert_eq!(
             quads[1],
-            Quad::new(OpCode::Add, "c0", "t0", "t1")
+            Quad::new(OpCode::Mul, "c1", "t0", "t1")
         );
         assert_eq!(
             quads[2],
-            Quad::new(OpCode::Div, "c3", "c4", "t2")
+            Quad::new(OpCode::Add, "c0", "t1", "t2")
         );
         assert_eq!(
             quads[3],
-            Quad::new(OpCode::Gt, "c5", "c6", "t3")
+            Quad::new(OpCode::Div, "c3", "c4", "t3")
         );
         assert_eq!(
             quads[4],
-            Quad::new(OpCode::And, "t2", "t3", "t4")
+            Quad::new(OpCode::Gt, "c5", "c6", "t4")
         );
         assert_eq!(
             quads[5],
-            Quad::new(OpCode::Or, "t1", "t4", "t5")
+            Quad::new(OpCode::And, "t3", "t4", "t5")
+        );
+        assert_eq!(
+            quads[6],
+            Quad::new(OpCode::Or, "t2", "t5", "t6")
         );
     }
 

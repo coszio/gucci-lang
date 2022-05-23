@@ -14,14 +14,14 @@ impl Display for TypeError {
     }
 }
 
-pub(crate) fn resolve(op: &UnOp, oper: &Type) -> std::result::Result<Type, ()> {
+pub(crate) fn resolve(op: &UnOp, rhs: &Type) -> std::result::Result<Type, ()> {
     let return_type = match op {
-        UnOp::Neg => match oper {
+        UnOp::Neg => match rhs {
             Type::Int => Type::Int,
             Type::Float => Type::Float,
             _ => Type::Error,
         },
-        UnOp::Not => match oper {
+        UnOp::Not => match rhs {
             Type::Bool => Type::Bool,
             _ => Type::Error,
         },

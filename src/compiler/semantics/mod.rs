@@ -17,7 +17,8 @@ pub(crate) enum Error {
   TypeMismatch(String, Type, Type),
   Undefined(String),
   Redefined(String),
-  Incompatible(BinOp, Type, Type),
+  IncompatibleBinOp(BinOp, Type, Type),
+  IncompatibleUnOp(UnOp, Type),
   UntypedVariable(String),
   NotAVariable(String, Kind),
   NotAFunction(String, Kind),
@@ -34,7 +35,8 @@ impl Display for Error {
       Error::TypeMismatch(key, type1, type2) => write!(f, "`{}` has type {}, but is being assigned to {}", key, type1, type2),
       Error::Redefined(key) => write!(f, "`{}` already exists in this scope", key),
       Error::NotAVariable(key, kind) => write!(f, "`{}` is a {}, which is not assignable", key, kind),
-      Error::Incompatible(op, lhs_type, rhs_type) => write!(f, "`{:?}` is not compatible with {} and {}", op, lhs_type, rhs_type),
+      Error::IncompatibleBinOp(op, lhs_type, rhs_type) => write!(f, "`{:?}` is not compatible with {} and {}", op, lhs_type, rhs_type),
+      Error::IncompatibleUnOp(op, rhs_type) => write!(f, "`{:?}` is not compatible with {}", op, rhs_type),
       Error::HeterogenousArray => write!(f, "Arrays must have all its elements of the same type"),
       Error::EmptyArray => write!(f, "Arrays must have at least one element"),
       Error::UntypedVariable(id) => write!(f, "{} doesn't have a type, all variables must have a type", id),
@@ -109,9 +111,13 @@ pub(crate) fn eval_expr(expr: &mut Expr, span: Span, scope: &Scope) -> Result<Ty
       let lhs_type = eval_expr(&mut lhs.0, lhs.1.clone(), scope)?;
       let rhs_type = eval_expr(&mut rhs.0, rhs.1.clone(), scope)?;
       
-      resolve(&lhs_type, &op, &rhs_type).map_err(|_| (Error::Incompatible(op.clone(), lhs_type, rhs_type), span))
+      resolve(&lhs_type, &op, &rhs_type).map_err(|_| (Error::IncompatibleBinOp(op.clone(), lhs_type, rhs_type), span))
     },
-    Expr::Unary { op, rhs } => todo!(),
+    Expr::Unary { op, rhs } => {
+      let rhs_type = eval_expr(&mut rhs.0, rhs.1.clone(), scope)?;
+
+      semantic_square::resolve(&op, &rhs_type).map_err(|_| (Error::IncompatibleUnOp(op.clone(), rhs_type), span))
+    },
     Expr::Constant(literal) => match literal {
         Literal::Int(_) => Ok(Type::Int),
         Literal::Float(_) => Ok(Type::Float),
