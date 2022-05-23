@@ -517,26 +517,26 @@ mod tests {
         // assert_eq!(quads.len(), 6);
 
         assert_eq!(
-            quads[0],
+            quads[1],
             Quad::new(OpCode::Assign, "c0", "", "v0")
         );
         assert_eq!(
-            quads[1],
+            quads[3],
             Quad::new(OpCode::Add, "v0", "c1", "t0")
         );
         assert_eq!(
-            quads[2],
+            quads[4],
             Quad::new(OpCode::Assign, "t0", "", "v1")
         );
         assert_eq!(
-            quads[3],
+            quads[6],
             Quad::new(OpCode::Mul, "v1", "c2", "t1")
         );
         assert_eq!(
-            quads[4],
+            quads[7],
             Quad::new(OpCode::Assign, "t1", "", "v2")
         );
-        assert_eq!(quads[5], Quad::new(OpCode::End, "", "", ""));
+        assert_eq!(quads[8], Quad::new(OpCode::End, "", "", ""));
     }
 
     #[test]
@@ -757,19 +757,7 @@ mod tests {
             quads,
         } = translate_from_src(src).unwrap();
 
-        assert_eq!(
-            quads[8],
-            Quad::new(OpCode::Assign, "c1", "", "p0")
-        );
-        assert_eq!(
-            quads[9],
-            Quad::new(OpCode::Assign, "c2", "", "p1")
-        );
-        assert_eq!(quads[10], Quad::new(OpCode::GoSub, "", "1", ""));
-        assert_eq!(
-            quads[11],
-            Quad::new(OpCode::Assign, "t0", "", "v2")
-        );
+        todo!();
     }
 
     #[test]
