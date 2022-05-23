@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 
 use crate::compiler::lexer::Span;
 
@@ -8,10 +8,10 @@ pub(crate) type Block = Vec<Spanned<Stmt>>;
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Stmt {
     Decl(Decl),
-    Assign {
-        to: Field, 
-        value: Spanned<Expr>,
-    },
+    // Assign {
+    //     to: Field, 
+    //     value: Spanned<Expr>,
+    // },
     Cond {
         if_: Spanned<Expr>,
         then: Block,
@@ -24,22 +24,22 @@ pub(crate) enum Stmt {
     Error,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Field {
-    pub(crate) name: String,
-    pub(crate) child: Option<Box<Self>>,
-}
-impl ToString for Field {
-    fn to_string(&self) -> String {
-        let mut s = String::new();
-        s.push_str(&self.name);
-        if let Some(ref child) = self.child {
-            s.push_str(".");
-            s.push_str(&child.to_string());
-        }
-        s
-    }
-}
+// #[derive(Debug, Clone, PartialEq)]
+// pub(crate) struct Field {
+//     pub(crate) name: String,
+//     pub(crate) child: Option<Box<Self>>,
+// }
+// impl ToString for Field {
+//     fn to_string(&self) -> String {
+//         let mut s = String::new();
+//         s.push_str(&self.name);
+//         if let Some(ref child) = self.child {
+//             s.push_str(".");
+//             s.push_str(&child.to_string());
+//         }
+//         s
+//     }
+// }
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Decl {
@@ -116,6 +116,9 @@ pub(crate) enum Expr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum BinOp {
+    //// Assignment
+    Assign,
+    
     //// Structural
     Chain,
 
@@ -153,6 +156,7 @@ impl Display for BinOp {
             BinOp::Gte => write!(f, "GTE"),
             BinOp::And => write!(f, "AND"),
             BinOp::Or => write!(f, "OR"),
+            BinOp::Assign => write!(f, "="),
         }
     }
 }
@@ -173,8 +177,8 @@ impl Display for UnOp {
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Literal {
-    Int(i64),
-    Float(f64),
+    Int(i32),
+    Float(f32),
     Bool(bool),
     Char(char),
     String(String),
@@ -189,6 +193,26 @@ impl Display for Literal {
             Literal::Char(c) => write!(f, "c:{}", c),
             Literal::String(s) => write!(f, "s:{}", s),
         }
+    }
+}
+
+impl FromStr for Literal {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let type_= &s[0..1];
+        let value = &s[2..];
+
+        let literal = match type_ {
+        "i" => Literal::Int(value.parse::<i32>().unwrap()),
+        "f" => Literal::Float(value.parse::<f32>().unwrap()),
+        "c" => Literal::Char(value.parse::<char>().unwrap()),
+        "b" => Literal::Bool(value.parse::<bool>().unwrap()),
+        "s" => Literal::String(value.to_string()),
+        _ => return Err(format!("Unknown literal type: {}", type_))
+        };
+
+        Ok(literal)
     }
 }
 
@@ -210,6 +234,23 @@ pub enum Type {
 
     //// Error handling
     Error,
+}
+impl Type {
+    pub fn size(&self) -> usize {
+        match self {
+            // stored in the stack
+            Type::Int => 32,
+            Type::Float => 32,
+            Type::Bool => 1,
+            Type::Char => 8,
+
+            // stored in the heap (unknown size)
+            Type::Array(t) => 0,
+            Type::String => 0,
+            Type::Custom(s) => 0,
+            Type::Error => 0,
+        }
+    }
 }
 
 impl Display for Type {

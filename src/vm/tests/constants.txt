@@ -1,0 +1,5 @@
+c0  , i:6
+c1  , f:9.3
+c2  , s:hola mundo
+c3  , b:false
+c4  , c:c

@@ -1,42 +1,34 @@
 
 use std::{collections::HashMap, fmt::Display};
 
-use crate::compiler::{parser::ast::{Type, Expr, BinOp}};
-use crate::compiler::semantics::item::Kind;
-// use crate::compiler::semantics::item::Kind;
+pub type Result<T> = std::result::Result<T, Error>;
 
-pub(crate) type Result<T> = std::result::Result<T, Error>;
-
-pub(crate) trait Update<T> {
+pub trait Update<T> {
   fn update(&mut self, other: &T) -> Result<()>;
 }
 
-pub(crate) trait Key {
+pub trait Key {
   fn key(&self) -> &str;
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum Error {
-  MismatchingTypes(String, Type, Type),
+pub enum Error {
   Nonexistent(String),
   Duplicate(String),
-  Unassignable(String, Kind),
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-          Error::MismatchingTypes(key, type1, type2) => write!(f, "Error: `{}` has type {}, but is being assigned to {}", key, type1, type2),
             Error::Nonexistent(key) => write!(f, "Error: `{}` does not exist in this scope", key),
             Error::Duplicate(key) => write!(f, "Error: `{}` already exists in this scope", key),
-            Error::Unassignable(key, kind) => write!(f, "Error: `{}` is a {}, which is not assignable", key, kind),
         }
     }
 }
 
 /// Generic directory for the different elements of the language
 #[derive(Debug, Clone)]
-pub(crate) struct Dir<T> {
+pub struct Dir<T> {
     parent: Option<Box<Self>>,
     dir: HashMap<String, T>,
 }
@@ -101,6 +93,7 @@ where T: Clone + Key {
     child
   }
 
+  /// Deletes current directory and returns the ownership of the parent
   pub fn drop(self) -> Self {
     let parent = *self.parent.unwrap();
     drop(self.dir);
