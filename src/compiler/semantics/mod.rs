@@ -1,6 +1,7 @@
 
 pub mod item;
 pub mod semantic_cube;
+pub mod semantic_square;
 
 use std::fmt::{Debug, Display};
 use lazy_static::lazy_static;
