@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, str::FromStr};
 
 use crate::compiler::lexer::Span;
 
@@ -193,6 +193,26 @@ impl Display for Literal {
             Literal::Char(c) => write!(f, "c:{}", c),
             Literal::String(s) => write!(f, "s:{}", s),
         }
+    }
+}
+
+impl FromStr for Literal {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let type_= &s[0..1];
+        let value = &s[2..];
+
+        let literal = match type_ {
+        "i" => Literal::Int(value.parse::<i32>().unwrap()),
+        "f" => Literal::Float(value.parse::<f32>().unwrap()),
+        "c" => Literal::Char(value.parse::<char>().unwrap()),
+        "b" => Literal::Bool(value.parse::<bool>().unwrap()),
+        "s" => Literal::String(value.to_string()),
+        _ => return Err(format!("Unknown literal type: {}", type_))
+        };
+
+        Ok(literal)
     }
 }
 

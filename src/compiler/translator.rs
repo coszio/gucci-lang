@@ -1,8 +1,13 @@
-use std::{fmt::Display, io::Write};
+use std::fmt::Display;
 
 use lazy_static::lazy_static;
 
-use crate::{compiler::parser::ast::Loop, shared::op_codes::OpCode, utils::lazy_counter::Counter};
+use crate::{
+    compiler::parser::ast::Loop,
+    shared::{W, op_code::OpCode, quad::Quad},
+    utils::lazy_counter::Counter,
+    
+};
 
 use super::parser::ast::{BinOp, Block, Decl, Expr, Fun, Literal, Stmt, Type};
 
@@ -10,43 +15,10 @@ lazy_static! {
     static ref TEMP_COUNTER: Counter = Counter::new("t");
     static ref CONST_COUNTER: Counter = Counter::new("c");
 }
-const W: usize = 14;
 
 fn reset_counters() {
     TEMP_COUNTER.reset();
     CONST_COUNTER.reset();
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Quad {
-    op: OpCode,
-    arg1: String,
-    arg2: String,
-    arg3: String,
-}
-
-impl Quad {
-    fn new(op: OpCode, arg1: &str, arg2: &str, arg3: &str) -> Self {
-        Quad {
-            op,
-            arg1: arg1.to_string(),
-            arg2: arg2.to_string(),
-            arg3: arg3.to_string(),
-        }
-    }
-}
-
-impl Display for Quad {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:^W$},{:^W$},{:^W$},{:^W$}",
-            self.op.to_string(),
-            self.arg1,
-            self.arg2,
-            self.arg3
-        )
-    }
 }
 
 #[derive(Clone)]
@@ -75,7 +47,7 @@ struct Const {
 }
 impl Display for Const {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:^W$}, {:^W$}, {:^W$}", "CONST", self.id, self.literal)
+        write!(f, "{:^W$}, {:^W$}", self.id, self.literal)
     }
 }
 #[derive(Clone)]
@@ -104,7 +76,7 @@ impl Display for BigSheep {
         }
         write!(f, "%%\n")?;
         for (i, quad) in self.quads.iter().enumerate() {
-            write!(f, "{:>4} {}\n", i, quad)?;
+            write!(f, "{:>4}.{}\n", i, quad)?;
         }
 
         Ok(())
@@ -120,7 +92,7 @@ fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
             let dest = TEMP_COUNTER.new_id();
 
             let this = Quad {
-                op: OpCode::BinOp(op),
+                op: OpCode::try_from(op).unwrap(), // todo: handle chain operator
                 arg1: lhs_res,
                 arg2: rhs_res,
                 arg3: dest.clone(),
@@ -160,7 +132,7 @@ fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
                 let arg_id = translate_expr(output, arg.0.clone());
                 let par_id = format!("p{}", i);
                 output.quads.push(Quad {
-                    op: OpCode::BinOp(BinOp::Assign),
+                    op: OpCode::Assign,
                     arg1: arg_id,
                     arg2: "".to_string(),
                     arg3: par_id,
@@ -178,7 +150,7 @@ fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
             let call_return = TEMP_COUNTER.new_id();
 
             output.quads.push(Quad::new(
-                OpCode::BinOp(BinOp::Assign),
+                OpCode::Assign,
                 &fun_return,
                 "",
                 &call_return.clone(),
@@ -191,7 +163,7 @@ fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
             let dest = TEMP_COUNTER.new_id();
 
             let this = Quad {
-                op: OpCode::UnOp(op),
+                op: OpCode::try_from(op).unwrap(),
                 arg1: rhs_res,
                 arg2: "".to_string(),
                 arg3: dest.clone(),
@@ -212,14 +184,22 @@ fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
         Stmt::Decl(decl) => match decl {
             Decl::Let {
                 name,
-                type_: _,
+                type_,
                 value,
             } => {
+                // allocate space for the variable
+                output.quads.push(Quad {
+                    op: OpCode::Alloc, 
+                    arg1: type_.size().to_string(), 
+                    arg2: "".to_string(),
+                    arg3: name.clone(), 
+                });
+
                 if let Some(value) = value {
                     let value_id = translate_expr(output, value.0);
 
                     let quad = Quad {
-                        op: OpCode::BinOp(BinOp::Assign),
+                        op: OpCode::Assign,
                         arg1: value_id,
                         arg2: "".to_string(),
                         arg3: name.clone(),
@@ -285,7 +265,7 @@ fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
                         Stmt::Return((expr, _)) => {
                             let expr_id = translate_expr(output, expr);
                             output.quads.push(Quad::new(
-                                OpCode::BinOp(BinOp::Assign),
+                                OpCode::Assign,
                                 &expr_id,
                                 "",
                                 &ret_dest,
@@ -444,16 +424,19 @@ pub(crate) fn translate(stmts: Block) -> Result<BigSheep, ()> {
     Ok(result)
 }
 
+#[cfg(test)]
 mod tests {
 
     use chumsky::{Parser, Stream};
+    
+    use serial_test::serial;
 
     use crate::compiler::{
         lexer::lexer,
-        parser::{ast::BinOp, parser},
+        parser::parser,
         semantics,
     };
-
+    
     use super::*;
 
     fn translate_from_src(src: &str) -> Result<BigSheep, ()> {
@@ -473,21 +456,10 @@ mod tests {
                 Err(())
             }
         }
-
-        // if let Err(errs) = semantics::semantic_analysis(ast.clone()) {
-        //     println!("semantic errors: {:?}", errs);
-        //     return Err(());
-        // }
-
-        // Translate only if there were no semantic errors
-        // let res = translate(ast).unwrap();
-
-        // println!("{}", res.clone());
-
-        // Ok(res)
     }
 
     #[test]
+    #[serial]
     fn test_expressions() {
         let src = "
       1 + 2 * 3 || 4 / 5 && 6 > 7;
@@ -503,31 +475,32 @@ mod tests {
 
         assert_eq!(
             quads[0],
-            Quad::new(OpCode::BinOp(BinOp::Mul), "c1", "c2", "t0")
+            Quad::new(OpCode::Mul, "c1", "c2", "t0")
         );
         assert_eq!(
             quads[1],
-            Quad::new(OpCode::BinOp(BinOp::Add), "c0", "t0", "t1")
+            Quad::new(OpCode::Add, "c0", "t0", "t1")
         );
         assert_eq!(
             quads[2],
-            Quad::new(OpCode::BinOp(BinOp::Div), "c3", "c4", "t2")
+            Quad::new(OpCode::Div, "c3", "c4", "t2")
         );
         assert_eq!(
             quads[3],
-            Quad::new(OpCode::BinOp(BinOp::Gt), "c5", "c6", "t3")
+            Quad::new(OpCode::Gt, "c5", "c6", "t3")
         );
         assert_eq!(
             quads[4],
-            Quad::new(OpCode::BinOp(BinOp::And), "t2", "t3", "t4")
+            Quad::new(OpCode::And, "t2", "t3", "t4")
         );
         assert_eq!(
             quads[5],
-            Quad::new(OpCode::BinOp(BinOp::Or), "t1", "t4", "t5")
+            Quad::new(OpCode::Or, "t1", "t4", "t5")
         );
     }
 
     #[test]
+    #[serial]
     fn test_assignment() {
         let src = "
       let a: int = 1;
@@ -545,28 +518,29 @@ mod tests {
 
         assert_eq!(
             quads[0],
-            Quad::new(OpCode::BinOp(BinOp::Assign), "c0", "", "v0")
+            Quad::new(OpCode::Assign, "c0", "", "v0")
         );
         assert_eq!(
             quads[1],
-            Quad::new(OpCode::BinOp(BinOp::Add), "v0", "c1", "t0")
+            Quad::new(OpCode::Add, "v0", "c1", "t0")
         );
         assert_eq!(
             quads[2],
-            Quad::new(OpCode::BinOp(BinOp::Assign), "t0", "", "v1")
+            Quad::new(OpCode::Assign, "t0", "", "v1")
         );
         assert_eq!(
             quads[3],
-            Quad::new(OpCode::BinOp(BinOp::Mul), "v1", "c2", "t1")
+            Quad::new(OpCode::Mul, "v1", "c2", "t1")
         );
         assert_eq!(
             quads[4],
-            Quad::new(OpCode::BinOp(BinOp::Assign), "t1", "", "v2")
+            Quad::new(OpCode::Assign, "t1", "", "v2")
         );
         assert_eq!(quads[5], Quad::new(OpCode::End, "", "", ""));
     }
 
     #[test]
+    #[serial]
     fn test_if_else() {
         let src = "
       if 1 > 2 {
@@ -586,22 +560,23 @@ mod tests {
 
         assert_eq!(
             quads[0],
-            Quad::new(OpCode::BinOp(BinOp::Gt), "c0", "c1", "t0")
+            Quad::new(OpCode::Gt, "c0", "c1", "t0")
         );
         assert_eq!(quads[1], Quad::new(OpCode::GotoF, "t0", "4", ""));
         assert_eq!(
             quads[2],
-            Quad::new(OpCode::BinOp(BinOp::Add), "c2", "c3", "t1")
+            Quad::new(OpCode::Add, "c2", "c3", "t1")
         );
         assert_eq!(quads[3], Quad::new(OpCode::Goto, "", "5", ""));
         assert_eq!(
             quads[4],
-            Quad::new(OpCode::BinOp(BinOp::Sub), "c4", "c5", "t2")
+            Quad::new(OpCode::Sub, "c4", "c5", "t2")
         );
         assert_eq!(quads[5], Quad::new(OpCode::End, "", "", ""));
     }
 
     #[test]
+    #[serial]
     fn test_if_elseif_else() {
         let src = "
       if 1 > 2 {
@@ -623,33 +598,34 @@ mod tests {
 
         assert_eq!(
             quads[0],
-            Quad::new(OpCode::BinOp(BinOp::Gt), "c0", "c1", "t0")
+            Quad::new(OpCode::Gt, "c0", "c1", "t0")
         );
         assert_eq!(quads[1], Quad::new(OpCode::GotoF, "t0", "4", ""));
         assert_eq!(
             quads[2],
-            Quad::new(OpCode::BinOp(BinOp::Add), "c2", "c3", "t1")
+            Quad::new(OpCode::Add, "c2", "c3", "t1")
         );
         assert_eq!(quads[3], Quad::new(OpCode::Goto, "", "9", ""));
         assert_eq!(
             quads[4],
-            Quad::new(OpCode::BinOp(BinOp::Gt), "c4", "c5", "t2")
+            Quad::new(OpCode::Gt, "c4", "c5", "t2")
         );
         assert_eq!(quads[5], Quad::new(OpCode::GotoF, "t2", "8", ""));
         assert_eq!(
             quads[6],
-            Quad::new(OpCode::BinOp(BinOp::Add), "c6", "c7", "t3")
+            Quad::new(OpCode::Add, "c6", "c7", "t3")
         );
         assert_eq!(quads[7], Quad::new(OpCode::Goto, "", "9", ""));
         assert_eq!(
             quads[8],
-            Quad::new(OpCode::BinOp(BinOp::Sub), "c8", "c9", "t4")
+            Quad::new(OpCode::Sub, "c8", "c9", "t4")
         );
         assert_eq!(quads[9], Quad::new(OpCode::End, "", "", ""));
     }
 
     #[test]
-    fn nested_if() {
+    #[serial]
+    fn test_nested_if() {
         let src = "
       if 1 > 2 {
         if 3 > 4 {
@@ -674,42 +650,43 @@ mod tests {
 
         assert_eq!(
             quads[0],
-            Quad::new(OpCode::BinOp(BinOp::Gt), "c0", "c1", "t0")
+            Quad::new(OpCode::Gt, "c0", "c1", "t0")
         );
         assert_eq!(quads[1], Quad::new(OpCode::GotoF, "t0", "8", ""));
         assert_eq!(
             quads[2],
-            Quad::new(OpCode::BinOp(BinOp::Gt), "c2", "c3", "t1")
+            Quad::new(OpCode::Gt, "c2", "c3", "t1")
         );
         assert_eq!(quads[3], Quad::new(OpCode::GotoF, "t1", "6", ""));
         assert_eq!(
             quads[4],
-            Quad::new(OpCode::BinOp(BinOp::Add), "c4", "c5", "t2")
+            Quad::new(OpCode::Add, "c4", "c5", "t2")
         );
         assert_eq!(quads[5], Quad::new(OpCode::Goto, "", "7", ""));
         assert_eq!(
             quads[6],
-            Quad::new(OpCode::BinOp(BinOp::Sub), "c6", "c7", "t3")
+            Quad::new(OpCode::Sub, "c6", "c7", "t3")
         );
         assert_eq!(quads[7], Quad::new(OpCode::Goto, "", "13", ""));
         assert_eq!(
             quads[8],
-            Quad::new(OpCode::BinOp(BinOp::Gt), "c8", "c9", "t4")
+            Quad::new(OpCode::Gt, "c8", "c9", "t4")
         );
         assert_eq!(quads[9], Quad::new(OpCode::GotoF, "t4", "12", ""));
         assert_eq!(
             quads[10],
-            Quad::new(OpCode::BinOp(BinOp::Sub), "c10", "c11", "t5")
+            Quad::new(OpCode::Sub, "c10", "c11", "t5")
         );
         assert_eq!(quads[11], Quad::new(OpCode::Goto, "", "13", ""));
         assert_eq!(
             quads[12],
-            Quad::new(OpCode::BinOp(BinOp::Add), "c12", "c13", "t6")
+            Quad::new(OpCode::Add, "c12", "c13", "t6")
         );
         assert_eq!(quads[13], Quad::new(OpCode::End, "", "", ""));
     }
 
     #[test]
+    #[serial]
     fn test_while() {
         let src = "
       while 1 > 2 {
@@ -727,18 +704,19 @@ mod tests {
 
         assert_eq!(
             quads[0],
-            Quad::new(OpCode::BinOp(BinOp::Gt), "c0", "c1", "t0")
+            Quad::new(OpCode::Gt, "c0", "c1", "t0")
         );
         assert_eq!(quads[1], Quad::new(OpCode::GotoF, "t0", "4", ""));
         assert_eq!(
             quads[2],
-            Quad::new(OpCode::BinOp(BinOp::Add), "c2", "c3", "t1")
+            Quad::new(OpCode::Add, "c2", "c3", "t1")
         );
         assert_eq!(quads[3], Quad::new(OpCode::Goto, "", "0", ""));
         assert_eq!(quads[4], Quad::new(OpCode::End, "", "", ""));
     }
 
     #[test]
+    #[serial]
     fn test_fun_decl() {
         let src = r#"
       2 * 3;
@@ -764,6 +742,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_fun_call() {
         let src = r#"
       fun foo(x: int, y: int): string {
@@ -780,20 +759,21 @@ mod tests {
 
         assert_eq!(
             quads[8],
-            Quad::new(OpCode::BinOp(BinOp::Assign), "c1", "", "p0")
+            Quad::new(OpCode::Assign, "c1", "", "p0")
         );
         assert_eq!(
             quads[9],
-            Quad::new(OpCode::BinOp(BinOp::Assign), "c2", "", "p1")
+            Quad::new(OpCode::Assign, "c2", "", "p1")
         );
         assert_eq!(quads[10], Quad::new(OpCode::GoSub, "", "1", ""));
         assert_eq!(
             quads[11],
-            Quad::new(OpCode::BinOp(BinOp::Assign), "t0", "", "v2")
+            Quad::new(OpCode::Assign, "t0", "", "v2")
         );
     }
 
     #[test]
+    #[serial]
     fn test_recursive_call() {
         let src = r#"
         fun fibonacci(n: int): int {

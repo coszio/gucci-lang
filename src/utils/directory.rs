@@ -1,18 +1,18 @@
 
 use std::{collections::HashMap, fmt::Display};
 
-pub(crate) type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 
-pub(crate) trait Update<T> {
+pub trait Update<T> {
   fn update(&mut self, other: &T) -> Result<()>;
 }
 
-pub(crate) trait Key {
+pub trait Key {
   fn key(&self) -> &str;
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) enum Error {
+pub enum Error {
   Nonexistent(String),
   Duplicate(String),
 }
@@ -28,7 +28,7 @@ impl Display for Error {
 
 /// Generic directory for the different elements of the language
 #[derive(Debug, Clone)]
-pub(crate) struct Dir<T> {
+pub struct Dir<T> {
     parent: Option<Box<Self>>,
     dir: HashMap<String, T>,
 }
