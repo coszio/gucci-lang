@@ -1,4 +1,7 @@
-use std::{fmt::{Display, Error, Formatter}, str::FromStr};
+use std::{
+    fmt::{Display, Error, Formatter},
+    str::FromStr,
+};
 
 use crate::compiler::parser::ast::{BinOp, UnOp};
 
@@ -11,7 +14,7 @@ pub(crate) enum OpCode {
     Goto,
     GotoF,
     GotoT,
-    Alloc,
+    NewVar,
     GoSub,
     End,
 
@@ -44,7 +47,7 @@ impl Display for OpCode {
             OpCode::Goto => write!(f, "GOTO"),
             OpCode::GotoF => write!(f, "GOTOF"),
             OpCode::GotoT => write!(f, "GOTOT"),
-            OpCode::Alloc => write!(f, "ALLOC"),
+            OpCode::NewVar => write!(f, "NEWVAR"),
             OpCode::GoSub => write!(f, "GOSUB"),
             OpCode::Param => write!(f, "PARAM"),
             OpCode::End => write!(f, "END"),
@@ -120,25 +123,25 @@ impl FromStr for OpCode {
             "GOTOF" => OpCode::GotoF,
             "GOTOT" => OpCode::GotoT,
             "GOSUB" => OpCode::GoSub,
-            "ALLOC" => OpCode::Alloc,
+            "NEWVAR" => OpCode::NewVar,
             "END" => OpCode::End,
 
             "ADD" => OpCode::Add,
             "SUB" => OpCode::Sub,
             "MUL" => OpCode::Mul,
             "DIV" => OpCode::Div,
-            "EQ"  => OpCode::Eq,
+            "EQ" => OpCode::Eq,
             "NEQ" => OpCode::Neq,
-            "LT"  => OpCode::Lt,
-            "GT"  => OpCode::Gt,
+            "LT" => OpCode::Lt,
+            "GT" => OpCode::Gt,
             "LTE" => OpCode::Lte,
             "GTE" => OpCode::Gte,
             "AND" => OpCode::And,
-            "OR"  => OpCode::Or,
+            "OR" => OpCode::Or,
             "NOT" => OpCode::Not,
             "NEG" => OpCode::Neg,
-            "="   => OpCode::Assign,
-            _     => return Err(format!("Invalid op code: {}", s)),
+            "=" => OpCode::Assign,
+            _ => return Err(format!("Invalid op code: {}", s)),
         };
 
         Ok(op_code)

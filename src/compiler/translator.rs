@@ -4,9 +4,8 @@ use lazy_static::lazy_static;
 
 use crate::{
     compiler::parser::ast::Loop,
-    shared::{W, op_code::OpCode, quad::Quad},
+    shared::{op_code::OpCode, quad::Quad, W},
     utils::lazy_counter::Counter,
-    
 };
 
 use super::parser::ast::{BinOp, Block, Decl, Expr, Fun, Literal, Stmt, Type};
@@ -27,6 +26,7 @@ struct Function {
     pointer: usize,
     params: Vec<(String, Type)>,
     ret_type: Option<Type>,
+    ret_dir: Option<String>,
 }
 impl Function {
     fn size(&self) -> usize {
@@ -35,7 +35,9 @@ impl Function {
 }
 impl Display for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:^W$},{:^W$}", self.id, self.pointer)?;
+        let type_ = match &self.ret_type { Some(t) => t.to_string(), None => "".to_string() };
+        let ret_var = self.ret_dir.clone().unwrap_or_default();
+        write!(f, "{:^W$},{:^W$},{:^W$},{:^W$}", self.id, self.pointer, type_, ret_var)?;
         Ok(())
     }
 }
@@ -132,7 +134,7 @@ fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
                 let arg_id = translate_expr(output, arg.0.clone());
                 let par_id = format!("p{}", i);
                 output.quads.push(Quad {
-                    op: OpCode::Assign,
+                    op: OpCode::Param,
                     arg1: arg_id,
                     arg2: "".to_string(),
                     arg3: par_id,
@@ -146,16 +148,18 @@ fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
                 "",
             ));
 
-            let fun_return = output.quads[func.pointer].arg3.clone();
             let call_return = TEMP_COUNTER.new_id();
 
-            output.quads.push(Quad::new(
-                OpCode::Assign,
-                &fun_return,
-                "",
-                &call_return.clone(),
-            ));
-            call_return
+            if let Some(fun_return) = func.ret_dir.clone() {
+                output.quads.push(Quad::new(
+                    OpCode::Assign,
+                    &fun_return,
+                    "",
+                    &call_return.clone(),
+                ));
+                return call_return
+            }
+            "".to_string()
         }
         Expr::Unary { op, rhs } => {
             let rhs_res = translate_expr(output, rhs.0);
@@ -182,19 +186,27 @@ fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
 fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
     match stmt {
         Stmt::Decl(decl) => match decl {
-            Decl::Let {
-                name,
-                type_,
-                value,
-            } => {
-                // allocate space for the variable
-                output.quads.push(Quad {
-                    op: OpCode::Alloc, 
-                    arg1: type_.size().to_string(), 
-                    arg2: "".to_string(),
-                    arg3: name.clone(), 
-                });
+            Decl::Let { name, type_, value } => {
+                // Update variables table
+                match type_ {
+                    // Primitive
+                    Type::Int
+                    | Type::Char
+                    | Type::Bool
+                    | Type::Float => output.quads.push(Quad {
+                                        op: OpCode::NewVar,
+                                        arg1: type_.to_string(),
+                                        arg2: name.clone(),
+                                        arg3: "".to_string(),
+                                    }),
 
+                    // Array
+                    Type::Array(_) => todo!(),
+
+                    // Other
+                    _ => unimplemented!(),
+                };
+                
                 if let Some(value) = value {
                     let value_id = translate_expr(output, value.0);
 
@@ -206,12 +218,11 @@ fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
                     };
 
                     output.quads.push(quad);
+                } 
 
-                    name
-                } else {
-                    todo!();
-                }
+                "".to_string()
             }
+            
             Decl::Fun(Fun {
                 name,
                 params,
@@ -228,13 +239,14 @@ fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
                     pointer: output.quads.len(),
                     params: Vec::new(),
                     ret_type: ret_type.clone(),
+                    ret_dir: None,
                 };
 
                 // setup return
                 let mut ret_dest: String = String::new();
                 if let Some(_) = ret_type {
                     let dest = TEMP_COUNTER.new_id();
-                    output.quads.push(Quad::new(OpCode::Alloc, "", "", &dest));
+                    fun.ret_dir = Some(dest.clone());
                     ret_dest = dest;
                 }
 
@@ -243,14 +255,17 @@ fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
                 // allocate resources
                 for (param, _) in params.iter() {
                     fun.params.push((param.name.clone(), param.type_.clone()));
+                    output.quads.push(Quad {
+                        op: OpCode::NewVar,
+                        arg1: param.type_.to_string(),
+                        arg2: param.name.clone(),
+                        arg3: "".to_string(),
+                    });
                 }
-                output
-                    .quads
-                    .push(Quad::new(OpCode::Era, &(*fun.size().to_string()), "", ""));
 
                 for (i, (name, _)) in fun.params.iter().enumerate() {
                     output.quads.push(Quad {
-                        op: OpCode::Param,
+                        op: OpCode::Assign,
                         arg1: format!("p{i}"),
                         arg2: "".to_string(),
                         arg3: name.clone(),
@@ -260,16 +275,21 @@ fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
                 output.funcs.push(fun);
 
                 // generate quads
+                let mut ret_goto_ptr = Option::<usize>::None;
                 for (stmt, _) in body {
                     match stmt {
+                        // TODO: handle nested returns
                         Stmt::Return((expr, _)) => {
                             let expr_id = translate_expr(output, expr);
-                            output.quads.push(Quad::new(
-                                OpCode::Assign,
-                                &expr_id,
-                                "",
-                                &ret_dest,
-                            ));
+                            if ret_type.is_some() {
+                                output.quads.push(Quad::new(
+                                    OpCode::Assign, 
+                                    &expr_id,
+                                    "", 
+                                    &ret_dest));
+                            }
+                            output.quads.push(Quad::new(OpCode::Goto, "", "", ""));
+                            ret_goto_ptr = Some(output.quads.len() - 1);
                             break;
                         }
                         _ => translate_stmt(output, stmt),
@@ -283,6 +303,10 @@ fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
                     arg2: "".to_string(),
                     arg3: "".to_string(),
                 });
+                if let Some(ret_goto_ptr) = ret_goto_ptr {
+                    let endblock_ptr = output.quads.len() - 1;
+                    output.quads[ret_goto_ptr].arg2 = endblock_ptr.to_string();
+                }
                 output.quads[goto_ptr].arg2 = output.quads.len().to_string(); // set GOTO to point to end of function
                 "".to_string()
             }
@@ -427,16 +451,14 @@ pub(crate) fn translate(stmts: Block) -> Result<BigSheep, ()> {
 #[cfg(test)]
 mod tests {
 
+    use std::error::Error;
+
     use chumsky::{Parser, Stream};
-    
+
     use serial_test::serial;
 
-    use crate::compiler::{
-        lexer::lexer,
-        parser::parser,
-        semantics,
-    };
-    
+    use crate::compiler::{lexer::lexer, parser::parser, semantics};
+
     use super::*;
 
     fn translate_from_src(src: &str) -> Result<BigSheep, ()> {
@@ -458,6 +480,13 @@ mod tests {
         }
     }
 
+    fn assert_quads(quads: Vec<Quad>, expected_quads: Vec<&str>) {
+        assert_eq!(quads.len(), expected_quads.len());
+        for (i, quad) in quads.iter().enumerate() {
+            assert_eq!(quad, &expected_quads[i].parse::<Quad>().unwrap());
+        }
+    }
+
     #[test]
     #[serial]
     fn test_expressions() {
@@ -473,34 +502,13 @@ mod tests {
 
         assert_eq!(quads.len(), 8);
 
-        assert_eq!(
-            quads[0],
-            Quad::new(OpCode::Neg, "c2", "", "t0")
-        );
-        assert_eq!(
-            quads[1],
-            Quad::new(OpCode::Mul, "c1", "t0", "t1")
-        );
-        assert_eq!(
-            quads[2],
-            Quad::new(OpCode::Add, "c0", "t1", "t2")
-        );
-        assert_eq!(
-            quads[3],
-            Quad::new(OpCode::Div, "c3", "c4", "t3")
-        );
-        assert_eq!(
-            quads[4],
-            Quad::new(OpCode::Gt, "c5", "c6", "t4")
-        );
-        assert_eq!(
-            quads[5],
-            Quad::new(OpCode::And, "t3", "t4", "t5")
-        );
-        assert_eq!(
-            quads[6],
-            Quad::new(OpCode::Or, "t2", "t5", "t6")
-        );
+        assert_eq!(quads[0], Quad::new(OpCode::Neg, "c2", "", "t0"));
+        assert_eq!(quads[1], Quad::new(OpCode::Mul, "c1", "t0", "t1"));
+        assert_eq!(quads[2], Quad::new(OpCode::Add, "c0", "t1", "t2"));
+        assert_eq!(quads[3], Quad::new(OpCode::Div, "c3", "c4", "t3"));
+        assert_eq!(quads[4], Quad::new(OpCode::Gt, "c5", "c6", "t4"));
+        assert_eq!(quads[5], Quad::new(OpCode::And, "t3", "t4", "t5"));
+        assert_eq!(quads[6], Quad::new(OpCode::Or, "t2", "t5", "t6"));
     }
 
     #[test]
@@ -520,26 +528,11 @@ mod tests {
 
         // assert_eq!(quads.len(), 6);
 
-        assert_eq!(
-            quads[1],
-            Quad::new(OpCode::Assign, "c0", "", "v0")
-        );
-        assert_eq!(
-            quads[3],
-            Quad::new(OpCode::Add, "v0", "c1", "t0")
-        );
-        assert_eq!(
-            quads[4],
-            Quad::new(OpCode::Assign, "t0", "", "v1")
-        );
-        assert_eq!(
-            quads[6],
-            Quad::new(OpCode::Mul, "v1", "c2", "t1")
-        );
-        assert_eq!(
-            quads[7],
-            Quad::new(OpCode::Assign, "t1", "", "v2")
-        );
+        assert_eq!(quads[1], Quad::new(OpCode::Assign, "c0", "", "v0"));
+        assert_eq!(quads[3], Quad::new(OpCode::Add, "v0", "c1", "t0"));
+        assert_eq!(quads[4], Quad::new(OpCode::Assign, "t0", "", "v1"));
+        assert_eq!(quads[6], Quad::new(OpCode::Mul, "v1", "c2", "t1"));
+        assert_eq!(quads[7], Quad::new(OpCode::Assign, "t1", "", "v2"));
         assert_eq!(quads[8], Quad::new(OpCode::End, "", "", ""));
     }
 
@@ -562,20 +555,11 @@ mod tests {
 
         assert_eq!(quads.len(), 6);
 
-        assert_eq!(
-            quads[0],
-            Quad::new(OpCode::Gt, "c0", "c1", "t0")
-        );
+        assert_eq!(quads[0], Quad::new(OpCode::Gt, "c0", "c1", "t0"));
         assert_eq!(quads[1], Quad::new(OpCode::GotoF, "t0", "4", ""));
-        assert_eq!(
-            quads[2],
-            Quad::new(OpCode::Add, "c2", "c3", "t1")
-        );
+        assert_eq!(quads[2], Quad::new(OpCode::Add, "c2", "c3", "t1"));
         assert_eq!(quads[3], Quad::new(OpCode::Goto, "", "5", ""));
-        assert_eq!(
-            quads[4],
-            Quad::new(OpCode::Sub, "c4", "c5", "t2")
-        );
+        assert_eq!(quads[4], Quad::new(OpCode::Sub, "c4", "c5", "t2"));
         assert_eq!(quads[5], Quad::new(OpCode::End, "", "", ""));
     }
 
@@ -600,30 +584,15 @@ mod tests {
 
         assert_eq!(quads.len(), 10);
 
-        assert_eq!(
-            quads[0],
-            Quad::new(OpCode::Gt, "c0", "c1", "t0")
-        );
+        assert_eq!(quads[0], Quad::new(OpCode::Gt, "c0", "c1", "t0"));
         assert_eq!(quads[1], Quad::new(OpCode::GotoF, "t0", "4", ""));
-        assert_eq!(
-            quads[2],
-            Quad::new(OpCode::Add, "c2", "c3", "t1")
-        );
+        assert_eq!(quads[2], Quad::new(OpCode::Add, "c2", "c3", "t1"));
         assert_eq!(quads[3], Quad::new(OpCode::Goto, "", "9", ""));
-        assert_eq!(
-            quads[4],
-            Quad::new(OpCode::Gt, "c4", "c5", "t2")
-        );
+        assert_eq!(quads[4], Quad::new(OpCode::Gt, "c4", "c5", "t2"));
         assert_eq!(quads[5], Quad::new(OpCode::GotoF, "t2", "8", ""));
-        assert_eq!(
-            quads[6],
-            Quad::new(OpCode::Add, "c6", "c7", "t3")
-        );
+        assert_eq!(quads[6], Quad::new(OpCode::Add, "c6", "c7", "t3"));
         assert_eq!(quads[7], Quad::new(OpCode::Goto, "", "9", ""));
-        assert_eq!(
-            quads[8],
-            Quad::new(OpCode::Sub, "c8", "c9", "t4")
-        );
+        assert_eq!(quads[8], Quad::new(OpCode::Sub, "c8", "c9", "t4"));
         assert_eq!(quads[9], Quad::new(OpCode::End, "", "", ""));
     }
 
@@ -652,40 +621,19 @@ mod tests {
 
         assert_eq!(quads.len(), 14);
 
-        assert_eq!(
-            quads[0],
-            Quad::new(OpCode::Gt, "c0", "c1", "t0")
-        );
+        assert_eq!(quads[0], Quad::new(OpCode::Gt, "c0", "c1", "t0"));
         assert_eq!(quads[1], Quad::new(OpCode::GotoF, "t0", "8", ""));
-        assert_eq!(
-            quads[2],
-            Quad::new(OpCode::Gt, "c2", "c3", "t1")
-        );
+        assert_eq!(quads[2], Quad::new(OpCode::Gt, "c2", "c3", "t1"));
         assert_eq!(quads[3], Quad::new(OpCode::GotoF, "t1", "6", ""));
-        assert_eq!(
-            quads[4],
-            Quad::new(OpCode::Add, "c4", "c5", "t2")
-        );
+        assert_eq!(quads[4], Quad::new(OpCode::Add, "c4", "c5", "t2"));
         assert_eq!(quads[5], Quad::new(OpCode::Goto, "", "7", ""));
-        assert_eq!(
-            quads[6],
-            Quad::new(OpCode::Sub, "c6", "c7", "t3")
-        );
+        assert_eq!(quads[6], Quad::new(OpCode::Sub, "c6", "c7", "t3"));
         assert_eq!(quads[7], Quad::new(OpCode::Goto, "", "13", ""));
-        assert_eq!(
-            quads[8],
-            Quad::new(OpCode::Gt, "c8", "c9", "t4")
-        );
+        assert_eq!(quads[8], Quad::new(OpCode::Gt, "c8", "c9", "t4"));
         assert_eq!(quads[9], Quad::new(OpCode::GotoF, "t4", "12", ""));
-        assert_eq!(
-            quads[10],
-            Quad::new(OpCode::Sub, "c10", "c11", "t5")
-        );
+        assert_eq!(quads[10], Quad::new(OpCode::Sub, "c10", "c11", "t5"));
         assert_eq!(quads[11], Quad::new(OpCode::Goto, "", "13", ""));
-        assert_eq!(
-            quads[12],
-            Quad::new(OpCode::Add, "c12", "c13", "t6")
-        );
+        assert_eq!(quads[12], Quad::new(OpCode::Add, "c12", "c13", "t6"));
         assert_eq!(quads[13], Quad::new(OpCode::End, "", "", ""));
     }
 
@@ -706,15 +654,9 @@ mod tests {
 
         assert_eq!(quads.len(), 5);
 
-        assert_eq!(
-            quads[0],
-            Quad::new(OpCode::Gt, "c0", "c1", "t0")
-        );
+        assert_eq!(quads[0], Quad::new(OpCode::Gt, "c0", "c1", "t0"));
         assert_eq!(quads[1], Quad::new(OpCode::GotoF, "t0", "4", ""));
-        assert_eq!(
-            quads[2],
-            Quad::new(OpCode::Add, "c2", "c3", "t1")
-        );
+        assert_eq!(quads[2], Quad::new(OpCode::Add, "c2", "c3", "t1"));
         assert_eq!(quads[3], Quad::new(OpCode::Goto, "", "0", ""));
         assert_eq!(quads[4], Quad::new(OpCode::End, "", "", ""));
     }
@@ -749,10 +691,10 @@ mod tests {
     #[serial]
     fn test_fun_call() {
         let src = r#"
-      fun foo(x: int, y: int): string {
-        return "hello";
+      fun foo(x: int, y: int): float {
+        return 2.5;
       }
-      let s: string = foo(1, 2);
+      let s: float = foo(1, 2);
     "#;
 
         let BigSheep {
@@ -760,8 +702,24 @@ mod tests {
             consts,
             quads,
         } = translate_from_src(src).unwrap();
-
-        todo!();
+        assert_quads(quads, vec![
+            "     GOTO     ,              ,      9       ,              ",
+            "  BEGINBLOCK  ,              ,              ,              ",
+            "    NEWVAR    ,     int      ,      v0      ,              ",
+            "    NEWVAR    ,     int      ,      v1      ,              ",
+            "      =       ,      p0      ,              ,      v0      ",
+            "      =       ,      p1      ,              ,      v1      ",                
+            "      =       ,      c0      ,              ,      t0      ",        
+            "     GOTO     ,              ,      8       ,              ",        
+            "   ENDBLOCK   ,              ,              ,              ",
+            "    NEWVAR    ,    float     ,      v2      ,              ",
+            "    PARAM     ,      c1      ,              ,      p0      ",
+            "    PARAM     ,      c2      ,              ,      p1      ",
+            "    GOSUB     ,      f0      ,      1       ,              ",
+            "      =       ,      t0      ,              ,      t1      ",        
+            "      =       ,      t1      ,              ,      v2      ",        
+            "     END      ,              ,              ,              ",
+        ]);
     }
 
     #[test]
@@ -784,20 +742,34 @@ mod tests {
             quads,
         } = translate_from_src(src).unwrap();
 
-        todo!();
-        // assert_eq!(quads.len(), 13);
-        // assert_eq!(quads[0], Quad::new("FUNC", "2", "2", ""));
-        // assert_eq!(quads[1], Quad::new("PARAM", "v0", "", ""));
-        // assert_eq!(quads[2], Quad::new("IF", "c0", "", ""));
-        // assert_eq!(quads[3], Quad::new("=", "c1", "", "p0"));
-        // assert_eq!(quads[4], Quad::new("GOTO", "", "6", ""));
-        // assert_eq!(quads[5], Quad::new("=", "c2", "", "p1"));
-        // assert_eq!(quads[6], Quad::new("GOTO", "", "8", ""));
-        // assert_eq!(quads[7], Quad::new("=", "c3", "", "p2"));
-        // assert_eq!(quads[8], Quad::new("GOTO", "", "10", ""));
-        // assert_eq!(quads[9], Quad::new("=", "c4", "", "p3"));
-        // assert_eq!(quads[10], Quad::new("GOTO", "", "12", ""));
-        // assert_eq!(quads[11], Quad::new("=", "c5", "", "p4"));
-        // assert_eq!(quads[12], Quad::new("END", "", "", ""));
+        assert_quads(quads, vec![
+            "     GOTO     ,              ,      26      ,        ",
+            "  BEGINBLOCK  ,              ,              ,        ",
+            "    NEWVAR    ,     int      ,      v0      ,        ",
+            "      =       ,      p0      ,              ,      v0",       
+            "    NEWVAR    ,     int      ,      v1      ,        ",
+            "      =       ,      c0      ,              ,      v1",       
+            "      EQ      ,      v0      ,      c1      ,      t1",       
+            "    GOTOF     ,      t1      ,      10      ,        ",
+            "      =       ,      v1      ,      c2      ,      t2",       
+            "     GOTO     ,              ,      23      ,        ",
+            "      GT      ,      v0      ,      c3      ,      t3",       
+            "    GOTOF     ,      t3      ,      23      ,        ",
+            "     SUB      ,      v0      ,      c4      ,      t4",       
+            "    PARAM     ,      t4      ,              ,      p0",       
+            "    GOSUB     ,      f0      ,      1       ,        ",
+            "      =       ,      t0      ,              ,      t5",       
+            "     SUB      ,      v0      ,      c5      ,      t6",       
+            "    PARAM     ,      t6      ,              ,      p0",       
+            "    GOSUB     ,      f0      ,      1       ,        ",
+            "      =       ,      t0      ,              ,      t7",       
+            "     ADD      ,      t5      ,      t7      ,      t8",       
+            "      =       ,      v1      ,      t8      ,      t9",       
+            "     GOTO     ,              ,      23      ,        ",
+            "      =       ,      v1      ,              ,      t0",       
+            "     GOTO     ,              ,      25      ,        ",       
+            "   ENDBLOCK   ,              ,              ,        ",
+            "     END      ,              ,              ,        ",
+        ]);
     }
 }
