@@ -204,12 +204,12 @@ impl FromStr for Literal {
         let value = &s[2..];
 
         let literal = match type_ {
-        "i" => Literal::Int(value.parse::<i32>().unwrap()),
-        "f" => Literal::Float(value.parse::<f32>().unwrap()),
-        "c" => Literal::Char(value.parse::<char>().unwrap()),
-        "b" => Literal::Bool(value.parse::<bool>().unwrap()),
-        "s" => Literal::String(value.to_string()),
-        _ => return Err(format!("Unknown literal type: {}", type_))
+            "i" => Literal::Int(value.parse::<i32>().unwrap()),
+            "f" => Literal::Float(value.parse::<f32>().unwrap()),
+            "c" => Literal::Char(value.parse::<char>().unwrap()),
+            "b" => Literal::Bool(value.parse::<bool>().unwrap()),
+            "s" => Literal::String(value.to_string()),
+            _ => return Err(format!("Unknown literal type: {}", type_))
         };
 
         Ok(literal)
