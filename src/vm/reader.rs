@@ -6,7 +6,7 @@ use std::{
 
 use crate::{compiler::parser::ast::Literal, shared::quad::Quad};
 
-struct Const {
+pub(crate) struct Const {
     id: usize,
     value: Literal,
 }
@@ -29,7 +29,7 @@ impl FromStr for Const {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-struct Function {
+pub(crate) struct Function {
     id: usize,
     pointer: usize,
 }
@@ -120,13 +120,14 @@ fn load_funs(reader: &mut BufReader<File>) -> Vec<Function> {
     funs
 }
 
-fn load_instructions(path: &str) {
+pub(crate) fn load_instructions(path: &str) -> (Vec<Function>, Vec<Const>, Vec<Quad>) {
     let mut reader = BufReader::new(File::open(path).unwrap());
 
     let funs = load_funs(&mut reader);
     let consts = load_constants(&mut reader);
     let quads = load_quads(&mut reader);
 
+    return (funs, consts, quads);
 }
 
 #[cfg(test)]
