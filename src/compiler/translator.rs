@@ -491,7 +491,7 @@ mod tests {
     #[serial]
     fn test_expressions() {
         let src = "
-      1 + 2 * (-3) || 4 / 5 && 6 > 7;
+      let a: bool = 1 + 2 * (-3) || 4 / 5 && 6 > 7;
       ";
 
         let BigSheep {
@@ -500,15 +500,18 @@ mod tests {
             quads,
         } = translate_from_src(src).unwrap();
 
-        assert_eq!(quads.len(), 8);
-
-        assert_eq!(quads[0], Quad::new(OpCode::Neg, "c2", "", "t0"));
-        assert_eq!(quads[1], Quad::new(OpCode::Mul, "c1", "t0", "t1"));
-        assert_eq!(quads[2], Quad::new(OpCode::Add, "c0", "t1", "t2"));
-        assert_eq!(quads[3], Quad::new(OpCode::Div, "c3", "c4", "t3"));
-        assert_eq!(quads[4], Quad::new(OpCode::Gt, "c5", "c6", "t4"));
-        assert_eq!(quads[5], Quad::new(OpCode::And, "t3", "t4", "t5"));
-        assert_eq!(quads[6], Quad::new(OpCode::Or, "t2", "t5", "t6"));
+        assert_quads(quads, vec![
+            "  NEWVAR   ,      bool    ,      v0      ,        ",
+            "  NEG      ,      c2      ,              ,      t0",
+            "  MUL      ,      c1      ,      t0      ,      t1",
+            "  ADD      ,      c0      ,      t1      ,      t2",
+            "  DIV      ,      c3      ,      c4      ,      t3",      
+            "   GT      ,      c5      ,      c6      ,      t4",
+            "  AND      ,      t3      ,      t4      ,      t5",
+            "   OR      ,      t2      ,      t5      ,      t6",
+            "    =      ,      t6      ,              ,      v0",
+            "  END      ,              ,              ,        ",
+        ]);
     }
 
     #[test]
@@ -526,14 +529,17 @@ mod tests {
             quads,
         } = translate_from_src(src).unwrap();
 
-        // assert_eq!(quads.len(), 6);
-
-        assert_eq!(quads[1], Quad::new(OpCode::Assign, "c0", "", "v0"));
-        assert_eq!(quads[3], Quad::new(OpCode::Add, "v0", "c1", "t0"));
-        assert_eq!(quads[4], Quad::new(OpCode::Assign, "t0", "", "v1"));
-        assert_eq!(quads[6], Quad::new(OpCode::Mul, "v1", "c2", "t1"));
-        assert_eq!(quads[7], Quad::new(OpCode::Assign, "t1", "", "v2"));
-        assert_eq!(quads[8], Quad::new(OpCode::End, "", "", ""));
+        assert_quads(quads, vec![
+            "    NEWVAR    ,     int      ,      v0      ,              ",
+            "      =       ,      c0      ,              ,      v0      ",
+            "    NEWVAR    ,     int      ,      v1      ,              ",
+            "     ADD      ,      v0      ,      c1      ,      t0      ",
+            "      =       ,      t0      ,              ,      v1      ",
+            "    NEWVAR    ,     int      ,      v2      ,              ",
+            "     MUL      ,      v1      ,      c2      ,      t1      ",
+            "      =       ,      t1      ,              ,      v2      ",
+            "     END      ,              ,              ,              ",
+        ]);
     }
 
     #[test]
@@ -553,14 +559,14 @@ mod tests {
             quads,
         } = translate_from_src(src).unwrap();
 
-        assert_eq!(quads.len(), 6);
-
-        assert_eq!(quads[0], Quad::new(OpCode::Gt, "c0", "c1", "t0"));
-        assert_eq!(quads[1], Quad::new(OpCode::GotoF, "t0", "4", ""));
-        assert_eq!(quads[2], Quad::new(OpCode::Add, "c2", "c3", "t1"));
-        assert_eq!(quads[3], Quad::new(OpCode::Goto, "", "5", ""));
-        assert_eq!(quads[4], Quad::new(OpCode::Sub, "c4", "c5", "t2"));
-        assert_eq!(quads[5], Quad::new(OpCode::End, "", "", ""));
+        assert_quads(quads, vec![
+            "      GT      ,      c0      ,      c1      ,      t0      ",
+            "    GOTOF     ,      t0      ,      4       ,              ",
+            "     ADD      ,      c2      ,      c3      ,      t1      ",
+            "     GOTO     ,              ,      5       ,              ",
+            "     SUB      ,      c4      ,      c5      ,      t2      ",
+            "     END      ,              ,              ,              ",
+        ]);
     }
 
     #[test]
@@ -582,18 +588,18 @@ mod tests {
             quads,
         } = translate_from_src(src).unwrap();
 
-        assert_eq!(quads.len(), 10);
-
-        assert_eq!(quads[0], Quad::new(OpCode::Gt, "c0", "c1", "t0"));
-        assert_eq!(quads[1], Quad::new(OpCode::GotoF, "t0", "4", ""));
-        assert_eq!(quads[2], Quad::new(OpCode::Add, "c2", "c3", "t1"));
-        assert_eq!(quads[3], Quad::new(OpCode::Goto, "", "9", ""));
-        assert_eq!(quads[4], Quad::new(OpCode::Gt, "c4", "c5", "t2"));
-        assert_eq!(quads[5], Quad::new(OpCode::GotoF, "t2", "8", ""));
-        assert_eq!(quads[6], Quad::new(OpCode::Add, "c6", "c7", "t3"));
-        assert_eq!(quads[7], Quad::new(OpCode::Goto, "", "9", ""));
-        assert_eq!(quads[8], Quad::new(OpCode::Sub, "c8", "c9", "t4"));
-        assert_eq!(quads[9], Quad::new(OpCode::End, "", "", ""));
+        assert_quads(quads, vec![
+            "      GT      ,      c0      ,      c1      ,      t0      ",
+            "    GOTOF     ,      t0      ,      4       ,              ",
+            "     ADD      ,      c2      ,      c3      ,      t1      ",
+            "     GOTO     ,              ,      9       ,              ",
+            "      GT      ,      c4      ,      c5      ,      t2      ",
+            "    GOTOF     ,      t2      ,      8       ,              ",
+            "     ADD      ,      c6      ,      c7      ,      t3      ",
+            "     GOTO     ,              ,      9       ,              ",
+            "     SUB      ,      c8      ,      c9      ,      t4      ",
+            "     END      ,              ,              ,              ",
+        ]);
     }
 
     #[test]
@@ -619,22 +625,22 @@ mod tests {
             quads,
         } = translate_from_src(src).unwrap();
 
-        assert_eq!(quads.len(), 14);
-
-        assert_eq!(quads[0], Quad::new(OpCode::Gt, "c0", "c1", "t0"));
-        assert_eq!(quads[1], Quad::new(OpCode::GotoF, "t0", "8", ""));
-        assert_eq!(quads[2], Quad::new(OpCode::Gt, "c2", "c3", "t1"));
-        assert_eq!(quads[3], Quad::new(OpCode::GotoF, "t1", "6", ""));
-        assert_eq!(quads[4], Quad::new(OpCode::Add, "c4", "c5", "t2"));
-        assert_eq!(quads[5], Quad::new(OpCode::Goto, "", "7", ""));
-        assert_eq!(quads[6], Quad::new(OpCode::Sub, "c6", "c7", "t3"));
-        assert_eq!(quads[7], Quad::new(OpCode::Goto, "", "13", ""));
-        assert_eq!(quads[8], Quad::new(OpCode::Gt, "c8", "c9", "t4"));
-        assert_eq!(quads[9], Quad::new(OpCode::GotoF, "t4", "12", ""));
-        assert_eq!(quads[10], Quad::new(OpCode::Sub, "c10", "c11", "t5"));
-        assert_eq!(quads[11], Quad::new(OpCode::Goto, "", "13", ""));
-        assert_eq!(quads[12], Quad::new(OpCode::Add, "c12", "c13", "t6"));
-        assert_eq!(quads[13], Quad::new(OpCode::End, "", "", ""));
+        assert_quads(quads, vec![
+            "      GT      ,      c0      ,      c1      ,      t0",
+            "    GOTOF     ,      t0      ,      8       ,",
+            "      GT      ,      c2      ,      c3      ,      t1",
+            "    GOTOF     ,      t1      ,      6       ,",
+            "     ADD      ,      c4      ,      c5      ,      t2",
+            "     GOTO     ,              ,      7       ,",
+            "     SUB      ,      c6      ,      c7      ,      t3",
+            "     GOTO     ,              ,      13      ,",
+            "      GT      ,      c8      ,      c9      ,      t4",
+            "    GOTOF     ,      t4      ,      12      ,",
+            "     SUB      ,     c10      ,     c11      ,      t5",
+            "     GOTO     ,              ,      13      ,",
+            "     ADD      ,     c12      ,     c13      ,      t6",
+            "     END      ,              ,              ,",
+        ]);
     }
 
     #[test]
@@ -652,13 +658,13 @@ mod tests {
             quads,
         } = translate_from_src(src).unwrap();
 
-        assert_eq!(quads.len(), 5);
-
-        assert_eq!(quads[0], Quad::new(OpCode::Gt, "c0", "c1", "t0"));
-        assert_eq!(quads[1], Quad::new(OpCode::GotoF, "t0", "4", ""));
-        assert_eq!(quads[2], Quad::new(OpCode::Add, "c2", "c3", "t1"));
-        assert_eq!(quads[3], Quad::new(OpCode::Goto, "", "0", ""));
-        assert_eq!(quads[4], Quad::new(OpCode::End, "", "", ""));
+        assert_quads(quads, vec![
+            "      GT      ,      c0      ,      c1      ,      t0",
+            "    GOTOF     ,      t0      ,      4       ,",
+            "     ADD      ,      c2      ,      c3      ,      t1",
+            "     GOTO     ,              ,      0       ,",
+            "     END      ,              ,              ,",
+        ]);
     }
 
     #[test]
