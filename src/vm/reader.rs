@@ -4,11 +4,14 @@ use std::{
     str::FromStr,
 };
 
-use crate::{compiler::parser::ast::Literal, shared::quad::Quad};
+use crate::{
+    compiler::parser::ast::{Literal, Type},
+    shared::quad::Quad,
+};
 
-pub(crate) struct Const {
-    id: usize,
-    value: Literal,
+pub(super) struct Const {
+    pub(super) id: usize,
+    pub(super) value: Literal,
 }
 
 impl FromStr for Const {
@@ -30,8 +33,9 @@ impl FromStr for Const {
 
 #[derive(PartialEq, Debug, Clone)]
 pub(crate) struct Function {
-    id: usize,
-    pointer: usize,
+    pub(super) id: usize,
+    pub(super) pointer: usize,
+    pub(super) ret: Option<(Type, usize)>,
 }
 
 impl FromStr for Function {
@@ -49,7 +53,18 @@ impl FromStr for Function {
             .unwrap();
 
         let pointer = parts.next().unwrap().parse::<usize>().unwrap();
-        Ok(Self { id, pointer })
+
+        // Sometimes there is a return type, sometimes not
+        let mut ret: Option<(Type, usize)> = None;
+        let ret_type = parts.next().unwrap();
+
+        if ret_type != "" {
+            let ret_type = ret_type.parse::<Type>().unwrap();
+            let ret_id = parts.next().unwrap()[1..].parse::<usize>().unwrap();
+            ret = Some((ret_type, ret_id));
+        }
+
+        Ok(Self { id, pointer, ret })
     }
 }
 
@@ -120,7 +135,7 @@ fn load_funs(reader: &mut BufReader<File>) -> Vec<Function> {
     funs
 }
 
-pub(crate) fn load_instructions(path: &str) -> (Vec<Function>, Vec<Const>, Vec<Quad>) {
+pub(super) fn load_obj(path: &str) -> (Vec<Function>, Vec<Const>, Vec<Quad>) {
     let mut reader = BufReader::new(File::open(path).unwrap());
 
     let funs = load_funs(&mut reader);
@@ -177,8 +192,29 @@ mod tests {
         let mut reader = BufReader::new(file);
         let funs = load_funs(&mut reader);
 
-        assert_eq!(funs[0], Function { id: 0, pointer: 1 });
-        assert_eq!(funs[1], Function { id: 1, pointer: 6 });
-        assert_eq!(funs[2], Function { id: 2, pointer: 20 });
+        assert_eq!(
+            funs[0],
+            Function {
+                id: 0,
+                pointer: 1,
+                ret: None
+            }
+        );
+        assert_eq!(
+            funs[1],
+            Function {
+                id: 1,
+                pointer: 6,
+                ret: Some((Type::Int, 2))
+            }
+        );
+        assert_eq!(
+            funs[2],
+            Function {
+                id: 2,
+                pointer: 20,
+                ret: Some((Type::Float, 3))
+            }
+        );
     }
 }

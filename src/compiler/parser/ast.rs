@@ -196,6 +196,18 @@ impl Display for Literal {
     }
 }
 
+impl Into<Type> for Literal {
+    fn into(self) -> Type {
+        match self {
+            Literal::Int(_) => Type::Int,
+            Literal::Float(_) => Type::Float,
+            Literal::Bool(_) => Type::Bool,
+            Literal::Char(_) => Type::Char,
+            Literal::String(_) => Type::String,
+        }
+    }
+}
+
 impl FromStr for Literal {
     type Err = String;
 
@@ -264,6 +276,20 @@ impl Display for Type {
             Type::String => write!(f, "string"),
             Type::Custom(name) => write!(f, "{}", name),
             Type::Error => todo!(),
+        }
+    }
+}
+
+impl FromStr for Type {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "int" => Ok(Type::Int),
+            "float" => Ok(Type::Float),
+            "bool" => Ok(Type::Bool),
+            "char" => Ok(Type::Char),
+            _ => Err(format!("Unhandled type: {}", s))
         }
     }
 }
