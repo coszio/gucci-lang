@@ -18,7 +18,7 @@ It was made using [chumsky](https://github.com/zesterer/chumsky) and [ariadne](h
 - [x] Basic expression semantics: semantic cube and evaluation
 - [x] Code generation for conditional statements and loops
 - [x] Code generation for functions
-- [ ] Memory map for virtual machine execution. 
+- [x] Memory map for virtual machine execution. 
   - Virtual Machine: execution of arithmetic expressions and sequential statements.
 - [ ] Code generation for structured data 
   - Virtual Machine: execution of conditional statements.
