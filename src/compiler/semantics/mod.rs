@@ -5,10 +5,11 @@ pub mod semantic_square;
 
 use std::fmt::{Debug, Display};
 use lazy_static::lazy_static;
+use crate::shared::{Spanned, Span};
 use crate::utils::lazy_counter::Counter;
 use crate::utils::directory::{self, Dir};
 use self::item::{Kind, Item};
-use super::{parser::ast::*, semantics::semantic_cube::resolve, lexer::Span};
+use super::{parser::ast::*, semantics::semantic_cube::resolve};
 
 pub(crate) type Scope = Dir<Item>;
 

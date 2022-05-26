@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{utils::directory::Key, compiler::parser::ast::{Type, Var, Spanned}};
+use crate::{utils::directory::Key, compiler::parser::ast::{Type, Var}, shared::Spanned};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Item { 

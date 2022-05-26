@@ -6,7 +6,7 @@ use chumsky::{
     Parser,
 };
 
-pub(crate) type Span = std::ops::Range<usize>;
+use crate::shared::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Op {

@@ -1,8 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
-use crate::compiler::lexer::Span;
+use crate::shared::{Span, Spanned};
 
-pub(crate) type Spanned<T> = (T, Span);
 pub(crate) type Block = Vec<Spanned<Stmt>>;
 
 #[derive(Debug, Clone, PartialEq)]

@@ -5,7 +5,9 @@ use chumsky::{
     Parser, select
 };
 
-use super::lexer::{Token, Span, Op};
+use crate::shared::{Spanned, Span};
+
+use super::lexer::{Token, Op};
 
 use self::ast::*;
 
