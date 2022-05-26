@@ -1,7 +1,8 @@
-use std::{collections::HashMap, rc::Rc, sync::Mutex, cell::RefCell};
+use std::{collections::HashMap, rc::Rc, cell::RefCell};
 
 use crate::compiler::parser::ast::{Type, Literal};
 
+#[derive(Debug)]
 struct Registry<T> {
     vals: Vec<T>, // TODO: maybe switch to Array in case it is required by the project
     freed: Vec<usize>,
@@ -36,6 +37,7 @@ impl<T: Default> Registry<T> {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct Memory {
     ints: Registry<i32>,
     floats: Registry<f32>,
@@ -72,12 +74,25 @@ impl Memory {
   }
 
 #[derive(Debug, PartialEq)]
-enum Value {
+pub(crate) enum Value {
     Int(i32),
     Float(f32),
     Char(char),
     Bool(bool),
 }
+impl From<Literal> for Value {
+    fn from(literal: Literal) -> Self {
+        match literal {
+            Literal::Int(i) => Self::Int(i),
+            Literal::Float(f) => Self::Float(f),
+            Literal::Char(c) => Self::Char(c),
+            Literal::Bool(b) => Self::Bool(b),
+            Literal::String(_) => unimplemented!(),
+        }
+    }
+}
+
+#[derive(Debug)]
 struct Var {
   type_: Type,
   address: usize,
@@ -114,6 +129,7 @@ impl Var {
     
 }
 
+#[derive(Debug)]
 pub(crate) struct Table {
     items: HashMap<usize, Var>,
     mem: Rc<RefCell<Memory>>,
@@ -127,7 +143,7 @@ impl Table {
         }
     }
 
-    fn insert(&mut self, id: usize, type_: Type) {
+    pub(crate) fn insert(&mut self, id: usize, type_: Type) {
         let address = self.mem.borrow_mut().new_address(&type_);
         self.items.insert(id, Var {
             type_,
@@ -135,17 +151,21 @@ impl Table {
         });
     }
 
-    fn get_val(&self, id: usize) -> Value {
+    pub(crate) fn get_val(&self, id: usize) -> Value {
         self.items[&id].get(&self.mem.borrow())
     }
 
-    fn set_val(&self, id: usize, value: Value) {
+    pub(crate) fn set_val(&self, id: usize, value: Value) {
         self.items[&id].set(&mut self.mem.borrow_mut(), value);
     }
 
-    fn remove(&mut self, id: usize) {
+    pub(crate) fn remove(&mut self, id: usize) {
         self.items[&id].free(&mut self.mem.borrow_mut());
         self.items.remove(&id).unwrap();
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.items.len()
     }
 }
 
