@@ -19,7 +19,7 @@
 
 let i: float = 2.0;
 let j: int = 1;
-// let k: bool = true;
+let k: bool = true;
 
 if ((i - i) * 2) >= j || k && false {
   let IF: int = 4;

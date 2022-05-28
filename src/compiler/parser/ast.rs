@@ -143,18 +143,18 @@ impl Display for BinOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             BinOp::Chain => write!(f, "."),
-            BinOp::Add => write!(f, "ADD"),
-            BinOp::Sub => write!(f, "SUB"),
-            BinOp::Mul => write!(f, "MUL"),
-            BinOp::Div => write!(f, "DIV"),
-            BinOp::Eq => write!(f, "EQ"),
-            BinOp::Ne => write!(f, "NEQ"),
-            BinOp::Lt => write!(f, "LT"),
-            BinOp::Gt => write!(f, "GT"),
-            BinOp::Lte => write!(f, "LTE"),
-            BinOp::Gte => write!(f, "GTE"),
-            BinOp::And => write!(f, "AND"),
-            BinOp::Or => write!(f, "OR"),
+            BinOp::Add => write!(f, "+"),
+            BinOp::Sub => write!(f, "-"),
+            BinOp::Mul => write!(f, "*"),
+            BinOp::Div => write!(f, "/"),
+            BinOp::Eq => write!(f, "=="),
+            BinOp::Ne => write!(f, "!="),
+            BinOp::Lt => write!(f, "<"),
+            BinOp::Gt => write!(f, ">"),
+            BinOp::Lte => write!(f, "<="),
+            BinOp::Gte => write!(f, ">="),
+            BinOp::And => write!(f, "&&"),
+            BinOp::Or => write!(f, "||"),
             BinOp::Assign => write!(f, "="),
         }
     }
@@ -168,8 +168,8 @@ pub(crate) enum UnOp {
 impl Display for UnOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UnOp::Not => write!(f, "NOT"),
-            UnOp::Neg => write!(f, "NEG"),
+            UnOp::Not => write!(f, "-"),
+            UnOp::Neg => write!(f, "!"),
         }
     }
 }
