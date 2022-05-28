@@ -6,7 +6,7 @@ use chumsky::{
     Parser,
 };
 
-pub(crate) type Span = std::ops::Range<usize>;
+use crate::shared::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Op {
@@ -29,7 +29,23 @@ pub(crate) enum Op {
 
 impl Display for Op {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
+        match self {
+            Op::Add => write!(f, "+"),
+            Op::Sub => write!(f, "-"),
+            Op::Mul => write!(f, "*"),
+            Op::Div => write!(f, "/"),
+            Op::Eq => write!(f, "=="),
+            Op::Ne => write!(f, "!="),
+            Op::Lt => write!(f, "<"),
+            Op::Lte => write!(f, "<="),
+            Op::Gt => write!(f, ">"),
+            Op::Gte => write!(f, ">="),
+            Op::And => write!(f, "&&"),
+            Op::Or => write!(f, "||"),
+            Op::Not => write!(f, "!"),
+            Op::Assign => write!(f, "="),
+            Op::Dot => write!(f, "."),
+        }
     }
 }
 
@@ -75,7 +91,7 @@ impl Display for Token {
             Token::Ctrl(ctrl) => write!(f, "{}", ctrl),
             Token::Op(op) => write!(f, "{}", op),
             Token::Type(t) => write!(f, "{}", t),
-            Token::Fun => write!(f, "function"),
+            Token::Fun => write!(f, "fun"),
             Token::Class => write!(f, "class"),
             Token::Interface => write!(f, "interface"),
             Token::Inherits => write!(f, "inherits"),

@@ -26,6 +26,6 @@ if ((i - i) * 2) >= j || k && false {
 } else if false {
   let ELSE_IF: bool = true;
 } else {
-  let ELSE: int = 10000 + 30;
+  let ELSE: int = 10000 + 30 - false;
   ELSE = j;
 }
