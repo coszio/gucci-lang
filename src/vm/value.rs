@@ -98,13 +98,13 @@ impl ops::Div<Value> for Value {
     fn div(self, _rhs: Value) -> Value {
         match self {
             Value::Int(i) => match _rhs {
-                Value::Int(j) => Value::Int(i / j),
-                Value::Float(j) => Value::Float(i as f32 / j),
+                Value::Int(j) if j != 0 => Value::Int(i / j),
+                Value::Float(j) if j != 0.0 => Value::Float(i as f32 / j),
                 _ => panic!("Cannot divide {:?} by {:?}", _rhs, self),
             },
             Value::Float(i) => match _rhs {
-                Value::Int(j) => Value::Float(i / j as f32),
-                Value::Float(j) => Value::Float(i / j),
+                Value::Int(j) if j != 0 => Value::Float(i / j as f32),
+                Value::Float(j) if j != 0.0 => Value::Float(i / j),
                 _ => panic!("Cannot divide {:?} by {:?}", _rhs, self),
             },
             _ => panic!("Cannot divide {:?} by {:?}", _rhs, self),
@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_div() {
-        assert_eq!(Value::Int(1) / Value::Int(2), Value::Float(0.5));
+        assert_eq!(Value::Int(1) / Value::Int(2), Value::Int(0));
         assert_eq!(Value::Int(1) / Value::Float(2.0), Value::Float(0.5));
         assert_eq!(Value::Float(1.0) / Value::Int(2), Value::Float(0.5));
         assert_eq!(Value::Float(1.0) / Value::Float(2.0), Value::Float(0.5));

@@ -58,7 +58,7 @@ impl Program {
         }
     }
 
-    fn parse_op_quad(&self, quad: &Quad) -> (Value, Value, &usize, &Table) {
+    fn parse_op_quad(&self, quad: &Quad) -> (Value, Value, usize, &Table) {
         let Quad {op: _, arg1: a, arg2: b, arg3: r } = quad;
 
         let table_id = &a[0..1];
@@ -72,7 +72,7 @@ impl Program {
 
         let a_id = &a[1..].parse::<usize>().unwrap();
         let b_id = &b[1..].parse::<usize>().unwrap();
-        let r_id = &r[1..].parse::<usize>().unwrap();
+        let r_id = r[1..].parse::<usize>().unwrap();
 
         // shadow args with their values
         let a = table_a.get_val(a_id);
@@ -91,62 +91,62 @@ impl Program {
             OpCode::Add => {
                 let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
-                r_table.set_val(r_id, a + b);
+                r_table.set_val(&r_id, a + b);
             },
             OpCode::Sub => {
                 let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
-                r_table.set_val(r_id, a - b);
+                r_table.set_val(&r_id, a - b);
             },
             OpCode::Mul => {
                 let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
-                r_table.set_val(r_id, a * b);
+                r_table.set_val(&r_id, a * b);
             },
             OpCode::Div => {
                 let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
-                r_table.set_val(r_id, a / b);
+                r_table.set_val(&r_id, a / b);
             },
-            OpCode::Eq => {
-                let (a, b, r_id, r_table) = self.parse_op_quad(quad);
+            // OpCode::Eq => {
+            //     let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
-                r_table.set_val(r_id, a == b);
-            },
-            OpCode::Neq => {
-                let (a, b, r_id, r_table) = self.parse_op_quad(quad);
+            //     r_table.set_val(&r_id, a == b);
+            // },
+            // OpCode::Neq => {
+            //     let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
-                r_table.set_val(r_id, a != b);
-            },
-            OpCode::Lt => {
-                let (a, b, r_id, r_table) = self.parse_op_quad(quad);
+            //     r_table.set_val(&r_id, a != b);
+            // },
+            // OpCode::Lt => {
+            //     let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
-                r_table.set_val(r_id, a < b);
-            },
-            OpCode::Gt => {
-                let (a, b, r_id, r_table) = self.parse_op_quad(quad);
+            //     r_table.set_val(&r_id, a < b);
+            // },
+            // OpCode::Gt => {
+            //     let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
-                r_table.set_val(r_id, a > b);
-            },
-            OpCode::Lte => {
-                let (a, b, r_id, r_table) = self.parse_op_quad(quad);
+            //     r_table.set_val(&r_id, a > b);
+            // },
+            // OpCode::Lte => {
+            //     let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
-                r_table.set_val(r_id, a <= b);
-            },
-            OpCode::Gte => {
-                let (a, b, r_id, r_table) = self.parse_op_quad(quad);
+            //     r_table.set_val(&r_id, a <= b);
+            // },
+            // OpCode::Gte => {
+            //     let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
-                r_table.set_val(r_id, a >= b);
-            },
+            //     r_table.set_val(&r_id, a >= b);
+            // },
             OpCode::And => {
                 let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
-                r_table.set_val(r_id, Value::Bool(a.to_bool() && b.to_bool()));
+                r_table.set_val(&r_id, Value::Bool(a.to_bool() && b.to_bool()));
             },
             OpCode::Or => {
                 let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
-                r_table.set_val(r_id, Value::Bool(a.to_bool() || b.to_bool()));
+                r_table.set_val(&r_id, Value::Bool(a.to_bool() || b.to_bool()));
             },
             _ => todo!(),
         }

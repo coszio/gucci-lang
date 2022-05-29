@@ -167,10 +167,10 @@ mod tests {
         table.insert(2, Type::Char);
         table.insert(3, Type::Bool);
 
-        assert_eq!(table.get_val(0), Value::Int(0));
-        assert_eq!(table.get_val(1), Value::Float(0.0));
-        assert_eq!(table.get_val(2), Value::Char('\0'));
-        assert_eq!(table.get_val(3), Value::Bool(false));
+        assert_eq!(table.get_val(&0), Value::Int(0));
+        assert_eq!(table.get_val(&1), Value::Float(0.0));
+        assert_eq!(table.get_val(&2), Value::Char('\0'));
+        assert_eq!(table.get_val(&3), Value::Bool(false));
     }
 
     #[test]
@@ -183,10 +183,10 @@ mod tests {
         table.insert(2, Type::Char);
         table.insert(3, Type::Bool);
 
-        table.remove(0);
-        table.remove(1);
-        table.remove(2);
-        table.remove(3);
+        table.remove(&0);
+        table.remove(&1);
+        table.remove(&2);
+        table.remove(&3);
 
         assert_eq!(table.items.len(), 0);
     }
@@ -202,10 +202,10 @@ mod tests {
         table2.insert(10, Type::Char);
         table2.insert(11, Type::Bool);
 
-        assert_eq!(table.get_val(10), Value::Int(0));
-        assert_eq!(table.get_val(11), Value::Float(0.0));
-        assert_eq!(table2.get_val(10), Value::Char('\0'));
-        assert_eq!(table2.get_val(11), Value::Bool(false));
+        assert_eq!(table.get_val(&10), Value::Int(0));
+        assert_eq!(table.get_val(&11), Value::Float(0.0));
+        assert_eq!(table2.get_val(&10), Value::Char('\0'));
+        assert_eq!(table2.get_val(&11), Value::Bool(false));
     }
 
     #[test]
@@ -216,10 +216,10 @@ mod tests {
         table.insert(0, Type::Int);
         table2.insert(0, Type::Float);
 
-        table.set_val(0, Value::Int(10));
-        table2.set_val(0, Value::Float(10.6));
+        table.set_val(&0, Value::Int(10));
+        table2.set_val(&0, Value::Float(10.6));
 
-        assert_eq!(table.get_val(0), Value::Int(10));
-        assert_eq!(table2.get_val(0), Value::Float(10.6));
+        assert_eq!(table.get_val(&0), Value::Int(10));
+        assert_eq!(table2.get_val(&0), Value::Float(10.6));
     }
 }
