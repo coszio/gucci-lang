@@ -1,5 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+use crate::compiler::parser::ast::Type;
 use crate::shared::quad::Quad;
 
 use super::value::Value;
@@ -57,6 +58,14 @@ impl Program {
             _ => panic!("invalid table id"),
         }
     }
+    fn get_mut_table(&mut self, id: &str) -> &mut memory::Table {
+        match id {
+            "v" => &mut self.vars,
+            "c" => &mut self.consts,
+            "t" => &mut self.temps,
+            _ => panic!("invalid table id"),
+        }
+    }
 
     fn parse_op_quad(&self, quad: &Quad) -> (Value, Value, usize, &Table) {
         let Quad {op: _, arg1: a, arg2: b, arg3: r } = quad;
@@ -81,10 +90,10 @@ impl Program {
         (a, b, r_id, table_r)
     }
 
-    fn execute(&self, quad: &Quad) {
+    fn execute(&mut self, quad: &Quad) {
         match quad.op {
             OpCode::Assign => {
-                let (a, b, r_id, table_r) = self.parse_op_quad(quad);
+                let (a, _, r_id, table_r) = self.parse_op_quad(quad);
 
                 table_r.set_val(&r_id, a);
             },
@@ -148,6 +157,55 @@ impl Program {
 
                 r_table.set_val(&r_id, Value::Bool(a.to_bool() || b.to_bool()));
             },
+            OpCode::NewVar => {
+                let Quad {
+                    op: _,
+                    arg1: type_,
+                    arg2: var,
+                    arg3: _,
+                } = quad;
+
+                let table_id = &var[0..1];
+                let table = self.get_mut_table(table_id);
+
+                let id = var[1..].parse::<usize>().unwrap();
+
+                let type_ = type_.parse::<Type>().unwrap();
+
+                table.insert(id, type_);
+            },
+            OpCode::Goto => {
+                let ip = quad.arg2.parse::<usize>().unwrap();
+
+                self.ip = ip;
+            },
+            OpCode::GotoF => {
+                // get condition value
+                let cond = &quad.arg1;
+                let cond_table = self.get_table(&cond[0..1]);
+                let cond_id = &cond[1..].parse::<usize>().unwrap();
+
+                // jump if condition is false
+                let cond = cond_table.get_val(cond_id);
+                if !cond.to_bool() {
+                    let ip = quad.arg2.parse::<usize>().unwrap();
+                    self.ip = ip;
+                }
+            },
+            OpCode::GotoT => {
+                // get condition value
+                let cond = &quad.arg1;
+                let cond_table = self.get_table(&cond[0..1]);
+                let cond_id = &cond[1..].parse::<usize>().unwrap();
+
+                // jump if condition is true
+                let cond = cond_table.get_val(cond_id);
+                if cond.to_bool() {
+                    let ip = quad.arg2.parse::<usize>().unwrap();
+                    self.ip = ip;
+                }
+            },
+
             _ => todo!(),
         }
     }
