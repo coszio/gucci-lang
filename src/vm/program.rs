@@ -108,7 +108,7 @@ impl Program {
 
                 r_table.set_val(r_id, a / b);
             },
-            OpCode::Eq => {
+           OpCode::Eq => {
                 let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
                 r_table.set_val(r_id, a == b);

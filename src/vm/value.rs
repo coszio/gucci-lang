@@ -1,8 +1,10 @@
 use std::ops;
+use std::cmp::PartialEq;
+use std::cmp::PartialOrd;
 
 use crate::compiler::parser::ast::Literal;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone)]
 pub(crate) enum Value {
     Int(i32),
     Float(f32),
@@ -131,30 +133,168 @@ impl ops::Div<Value> for Value {
     }
 }
 
-impl ops::BitAnd<Value> for Value {
-    type Output = Value;
-
-    fn bitand(self, _rhs: Value) -> Value {
+impl PartialEq<Value> for Value {
+    fn eq(&self, _rhs: &Value) -> bool {
         match self {
             Value::Int(i) => match _rhs {
-                Value::Int(j) => Value::Int(i & j),
-                _ => panic!("Cannot bitwise and {:?} with {:?}", _rhs, self),
+                Value::Int(j) => i == j,
+                Value::Float(j) => i as f32 == j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
             },
-            _ => panic!("Cannot bitwise and {:?} with {:?}", _rhs, self),
+            Value::Float(i) => match _rhs {
+                Value::Int(j) => i == j as f32,
+                Value::Float(j) => i == j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Char(i) => match _rhs {
+                Value::Char(j) => i == j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Bool(i) => match _rhs {
+                Value::Bool(j) => i == j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+        }
+    }
+
+    fn ne(&self, _rhs: &Value) -> bool {
+        match self {
+            Value::Int(i) => match _rhs {
+                Value::Int(j) => i != j,
+                Value::Float(j) => i as f32 != j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Float(i) => match _rhs {
+                Value::Int(j) => i != j as f32,
+                Value::Float(j) => i != j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Char(i) => match _rhs {
+                Value::Char(j) => i != j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Bool(i) => match _rhs {
+                Value::Bool(j) => i != j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
         }
     }
 }
 
-impl ops::BitOr<Value> for Value {
-    type Output = Value;
-
-    fn bitor(self, _rhs: Value) -> Value {
+impl PartialOrd<Value> for Value {
+    fn partial_cmp(&self, _rhs: &Value) -> Option<Ordering> {
         match self {
             Value::Int(i) => match _rhs {
-                Value::Int(j) => Value::Int(i | j),
-                _ => panic!("Cannot bitwise or {:?} with {:?}", _rhs, self),
+                Value::Int(j) => i.partial_cmp(&j),
+                Value::Float(j) => i.partial_cmp(&j as f32),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
             },
-            _ => panic!("Cannot bitwise or {:?} with {:?}", _rhs, self),
+            Value::Float(i) => match _rhs {
+                Value::Int(j) => i.partial_cmp(&j as &f32),
+                Value::Float(j) => i.partial_cmp(&j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Char(i) => match _rhs {
+                Value::Char(j) => i.partial_cmp(&j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Bool(i) => match _rhs {
+                Value::Bool(j) => i.partial_cmp(&j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+        }
+    }
+
+    fn gt(&self, _rhs: &Value) -> bool {
+        match self {
+            Value::Int(i) => match _rhs {
+                Value::Int(j) => i > j,
+                Value::Float(j) => i as f32 > j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Float(i) => match _rhs {
+                Value::Int(j) => i > j as &f32,
+                Value::Float(j) => i > j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Char(i) => match _rhs {
+                Value::Char(j) => i > j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Bool(i) => match _rhs {
+                Value::Bool(j) => i > j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+        }
+    }
+
+    fn lt(&self, _rhs: &Value) -> bool {
+        match self {
+            Value::Int(i) => match _rhs {
+                Value::Int(j) => i < j,
+                Value::Float(j) => i as f32 < j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Float(i) => match _rhs {
+                Value::Int(j) => i < j as &f32,
+                Value::Float(j) => i < j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Char(i) => match _rhs {
+                Value::Char(j) => i < j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Bool(i) => match _rhs {
+                Value::Bool(j) => i < j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+        }
+    }
+
+    fn ge(&self, _rhs: &Value) -> bool {
+        match self {
+            Value::Int(i) => match _rhs {
+                Value::Int(j) => i >= j,
+                Value::Float(j) => i as f32 >= j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Float(i) => match _rhs {
+                Value::Int(j) => i >= j as &f32,
+                Value::Float(j) => i >= j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Char(i) => match _rhs {
+                Value::Char(j) => i >= j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Bool(i) => match _rhs {
+                Value::Bool(j) => i >= j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+        }
+    }
+
+    fn le(&self, _rhs: &Value) -> bool {
+        match self {
+            Value::Int(i) => match _rhs {
+                Value::Int(j) => i <= j,
+                Value::Float(j) => i as f32 <= j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Float(i) => match _rhs {
+                Value::Int(j) => i <= j as &f32,
+                Value::Float(j) => i <= j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Char(i) => match _rhs {
+                Value::Char(j) => i <= j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Bool(i) => match _rhs {
+                Value::Bool(j) => i <= j,
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
         }
     }
 }
+
