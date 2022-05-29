@@ -2,6 +2,8 @@ use std::{collections::HashMap, rc::Rc, cell::RefCell};
 
 use crate::compiler::parser::ast::{Type, Literal};
 
+use super::value::Value;
+
 #[derive(Debug)]
 struct Registry<T> {
     vals: Vec<T>, // TODO: maybe switch to Array in case it is required by the project
@@ -73,24 +75,6 @@ impl Memory {
     }
   }
 
-#[derive(Debug, PartialEq)]
-pub(crate) enum Value {
-    Int(i32),
-    Float(f32),
-    Char(char),
-    Bool(bool),
-}
-impl From<Literal> for Value {
-    fn from(literal: Literal) -> Self {
-        match literal {
-            Literal::Int(i) => Self::Int(i),
-            Literal::Float(f) => Self::Float(f),
-            Literal::Char(c) => Self::Char(c),
-            Literal::Bool(b) => Self::Bool(b),
-            Literal::String(_) => unimplemented!(),
-        }
-    }
-}
 
 #[derive(Debug)]
 struct Var {
@@ -151,16 +135,16 @@ impl Table {
         });
     }
 
-    pub(crate) fn get_val(&self, id: usize) -> Value {
-        self.items[&id].get(&self.mem.borrow())
+    pub(crate) fn get_val(&self, id: &usize) -> Value {
+        self.items[id].get(&self.mem.borrow())
     }
 
-    pub(crate) fn set_val(&self, id: usize, value: Value) {
-        self.items[&id].set(&mut self.mem.borrow_mut(), value);
+    pub(crate) fn set_val(&self, id: &usize, value: Value) {
+        self.items[id].set(&mut self.mem.borrow_mut(), value);
     }
 
-    pub(crate) fn remove(&mut self, id: usize) {
-        self.items[&id].free(&mut self.mem.borrow_mut());
+    pub(crate) fn remove(&mut self, id: &usize) {
+        self.items[id].free(&mut self.mem.borrow_mut());
         self.items.remove(&id).unwrap();
     }
 
@@ -168,7 +152,6 @@ impl Table {
         self.items.len()
     }
 }
-
 
 #[cfg(test)]
 mod tests {
