@@ -2,7 +2,7 @@ use std::ops;
 
 use crate::compiler::parser::ast::Literal;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, PartialOrd)]
 pub(crate) enum Value {
     Int(i32),
     Float(f32),
@@ -20,37 +20,18 @@ impl From<Literal> for Value {
         }
     }
 }
-// impl Value {
-//     fn to_char(val: Value) -> Self {
-//         match val {
-//             Value::Int(i) => Self::Char(i as u8 as char),
-//             Value::Char(c) => Self::Char(c),
-//             _ => panic!("Cannot convert {:?} to char", val),
-//         }
-//     }
-//     fn to_int(val: Value) -> Self {
-//         match val {
-//             Value::Int(i) => Self::Int(i),
-//             Value::Char(c) => Self::Int(c as i32),
-//             _ => panic!("Cannot convert {:?} to int", val),
-//         }
-//     }
-//     fn to_float(val: Value) -> Self {
-//         match val {
-//             Value::Int(i) => Self::Float(i as f32),
-//             Value::Float(f) => Self::Float(f),
-//             _ => panic!("Cannot convert {:?} to float", val),
-//         }
-//     }
-//     fn to_bool(val: Value) -> Self {
-//         match val {
-//             Value::Int(i) => Self::Bool(i != 0),
-//             Value::Float(f) => Self::Bool(f != 0.0),
-//             Value::Char(c) => Self::Bool(c != '\0'),
-//             Value::Bool(b) => Self::Bool(b),
-//         }
-//     }
-// }
+
+impl Value {
+    pub(crate) fn to_bool(&self) -> bool {
+        match self {
+            Value::Int(i) => *i != 0,
+            Value::Float(f) => *f != 0.0,
+            Value::Char(c) => *c != '\0',
+            Value::Bool(b) => *b,
+        }
+    }
+}
+
 impl ops::Add<Value> for Value {
     type Output = Value;
 
@@ -131,30 +112,60 @@ impl ops::Div<Value> for Value {
     }
 }
 
-impl ops::BitAnd<Value> for Value {
-    type Output = Value;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    fn bitand(self, _rhs: Value) -> Value {
-        match self {
-            Value::Int(i) => match _rhs {
-                Value::Int(j) => Value::Int(i & j),
-                _ => panic!("Cannot bitwise and {:?} with {:?}", _rhs, self),
-            },
-            _ => panic!("Cannot bitwise and {:?} with {:?}", _rhs, self),
-        }
+    #[test]
+    fn test_add() {
+        assert_eq!(Value::Int(1) + Value::Int(2), Value::Int(3));
+        assert_eq!(Value::Int(1) + Value::Float(2.0), Value::Float(3.0));
+        assert_eq!(Value::Float(1.0) + Value::Int(2), Value::Float(3.0));
+        assert_eq!(Value::Float(1.0) + Value::Float(2.0), Value::Float(3.0));
+    }
+
+    #[test]
+    fn test_sub() {
+        assert_eq!(Value::Int(1) - Value::Int(2), Value::Int(-1));
+        assert_eq!(Value::Int(1) - Value::Float(2.0), Value::Float(-1.0));
+        assert_eq!(Value::Float(1.0) - Value::Int(2), Value::Float(-1.0));
+        assert_eq!(Value::Float(1.0) - Value::Float(2.0), Value::Float(-1.0));
+    }
+
+    #[test]
+    fn test_mul() {
+        assert_eq!(Value::Int(1) * Value::Int(2), Value::Int(2));
+        assert_eq!(Value::Int(1) * Value::Float(2.0), Value::Float(2.0));
+        assert_eq!(Value::Float(1.0) * Value::Int(2), Value::Float(2.0));
+        assert_eq!(Value::Float(1.0) * Value::Float(2.0), Value::Float(2.0));
+    }
+
+    #[test]
+    fn test_div() {
+        assert_eq!(Value::Int(1) / Value::Int(2), Value::Float(0.5));
+        assert_eq!(Value::Int(1) / Value::Float(2.0), Value::Float(0.5));
+        assert_eq!(Value::Float(1.0) / Value::Int(2), Value::Float(0.5));
+        assert_eq!(Value::Float(1.0) / Value::Float(2.0), Value::Float(0.5));
+    }
+
+    #[test]
+    fn test_and() {
+        todo!();
+    }
+
+    #[test]
+    fn test_or() {
+        todo!();
+    }
+
+    #[test]
+    fn test_not() {
+        todo!();
+    }
+
+    #[test]
+    fn test_compare() {
+        todo!();
     }
 }
 
-impl ops::BitOr<Value> for Value {
-    type Output = Value;
-
-    fn bitor(self, _rhs: Value) -> Value {
-        match self {
-            Value::Int(i) => match _rhs {
-                Value::Int(j) => Value::Int(i | j),
-                _ => panic!("Cannot bitwise or {:?} with {:?}", _rhs, self),
-            },
-            _ => panic!("Cannot bitwise or {:?} with {:?}", _rhs, self),
-        }
-    }
-}
