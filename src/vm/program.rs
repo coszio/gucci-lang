@@ -69,20 +69,27 @@ impl Program {
         }
     }
 
+    fn get_var(&mut self, var: &str) -> Value {
+        let table_id = &var[0..1];
+        let id = &var[1..].parse::<usize>().unwrap();
+        let table = self.get_mut_table(table_id);
+        let val = table.get_val(id);
+
+        // if a temp has been used, we need to drop it
+        if table_id == "t" {
+            table.remove(id);
+        }
+
+        val
+    }
     fn execute_binop(&mut self, quad: &Quad, resolve: fn(Value, Value) -> Value) {
 
         let Quad {op: _, arg1: a, arg2: b, arg3: r } = quad;
 
-        let table_id = &a[0..1];
-        let a_id = &a[1..].parse::<usize>().unwrap();
-        let table_a = self.get_table(table_id);
-        let a = table_a.get_val(a_id);
+        let a = self.get_var(a);
 
         let b = if b.len() > 0 {
-            let table_id = &b[0..1];
-            let b_id = &b[1..].parse::<usize>().unwrap();
-            let table_b = self.get_table(table_id);
-            table_b.get_val(b_id)
+            self.get_var(b)
         } else {
             Value::Bool(false)
         };

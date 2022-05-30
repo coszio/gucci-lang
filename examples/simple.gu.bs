@@ -1,43 +1,15 @@
 %%
-      c0      , f:2
-      c1      , i:1
-      c2      , b:true
-      c3      , i:2
-      c4      , b:false
-      c5      , i:4
-      c6      , b:false
-      c7      , b:true
-      c8      , i:10000
-      c9      , i:30
-     c10      , f:2.1
-     c11      , c:f
+      c0      , i:10
+      c1      , i:0
+      c2      , i:1
+      c3      , c:k
 %%
-   0.    NEWVAR    ,    float     ,      v0      ,              
+   0.    NEWVAR    ,     int      ,      v0      ,              
    1.      =       ,      c0      ,              ,      v0      
-   2.    NEWVAR    ,     int      ,      v1      ,              
-   3.      =       ,      c1      ,              ,      v1      
-   4.    NEWVAR    ,     bool     ,      v2      ,              
-   5.      =       ,      c2      ,              ,      v2      
-   6.     SUB      ,      v0      ,      v0      ,      t0      
-   7.     MUL      ,      t0      ,      c3      ,      t1      
-   8.     GTE      ,      t1      ,      v1      ,      t2      
-   9.     AND      ,      v2      ,      c4      ,      t3      
-  10.      OR      ,      t2      ,      t3      ,      t4      
-  11.    GOTOF     ,      t4      ,      16      ,              
-  12.    NEWVAR    ,     int      ,      v3      ,              
-  13.      =       ,      c5      ,              ,      v3      
-  14.    PRINT     ,      v3      ,              ,              
-  15.     GOTO     ,              ,      27      ,              
-  16.    GOTOF     ,      c6      ,      21      ,              
-  17.    NEWVAR    ,     bool     ,      v4      ,              
-  18.      =       ,      c7      ,              ,      v4      
-  19.    PRINT     ,      v4      ,              ,              
-  20.     GOTO     ,              ,      27      ,              
-  21.    NEWVAR    ,    float     ,      v5      ,              
-  22.     ADD      ,      c8      ,      c9      ,      t5      
-  23.     SUB      ,      t5      ,     c10      ,      t6      
-  24.      =       ,      t6      ,              ,      v5      
-  25.      =       ,      v0      ,      v5      ,      t7      
-  26.    PRINT     ,      v5      ,              ,              
-  27.    PRINT     ,     c11      ,              ,              
-  28.     END      ,              ,              ,              
+   2.     GTE      ,      v0      ,      c1      ,      t0      
+   3.    GOTOF     ,      t0      ,      7       ,              
+   4.     SUB      ,      v0      ,      c2      ,      t1      
+   5.      =       ,      t1      ,              ,      v0      
+   6.     GOTO     ,              ,      2       ,              
+   7.    PRINT     ,      c3      ,              ,              
+   8.     END      ,              ,              ,              

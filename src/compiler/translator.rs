@@ -91,13 +91,24 @@ fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
             let lhs_res = translate_expr(output, lhs.0);
             let rhs_res = translate_expr(output, rhs.0);
 
-            let dest = TEMP_COUNTER.new_id();
+            let mut dest = TEMP_COUNTER.new_id();
 
-            let this = Quad {
-                op: OpCode::try_from(op).unwrap(), // todo: handle chain operator
-                arg1: lhs_res,
-                arg2: rhs_res,
-                arg3: dest.clone(),
+            let this = if op == BinOp::Assign {
+                dest = rhs_res.clone();
+                Quad {
+                    op: OpCode::Assign,
+                    arg1: rhs_res,
+                    arg2: "".to_string(),
+                    arg3: lhs_res,
+                }
+            }
+            else { 
+                Quad {
+                    op: OpCode::try_from(op).unwrap(), // todo: handle chain operator
+                    arg1: lhs_res,
+                    arg2: rhs_res,
+                    arg3: dest.clone(),
+                }
             };
 
             output.quads.push(this);
