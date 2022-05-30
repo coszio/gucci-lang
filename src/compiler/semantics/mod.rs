@@ -5,10 +5,11 @@ pub mod semantic_square;
 
 use std::fmt::{Debug, Display};
 use lazy_static::lazy_static;
+use crate::shared::{Spanned, Span};
 use crate::utils::lazy_counter::Counter;
 use crate::utils::directory::{self, Dir};
 use self::item::{Kind, Item};
-use super::{parser::ast::*, semantics::semantic_cube::resolve, lexer::Span};
+use super::{parser::ast::*, semantics::semantic_cube::resolve};
 
 pub(crate) type Scope = Dir<Item>;
 
@@ -35,8 +36,8 @@ impl Display for Error {
       Error::TypeMismatch(key, type1, type2) => write!(f, "`{}` has type {}, but is being assigned to {}", key, type1, type2),
       Error::Redefined(key) => write!(f, "`{}` already exists in this scope", key),
       Error::NotAVariable(key, kind) => write!(f, "`{}` is a {}, which is not assignable", key, kind),
-      Error::IncompatibleBinOp(op, lhs_type, rhs_type) => write!(f, "`{:?}` is not compatible with {} and {}", op, lhs_type, rhs_type),
-      Error::IncompatibleUnOp(op, rhs_type) => write!(f, "`{:?}` is not compatible with {}", op, rhs_type),
+      Error::IncompatibleBinOp(op, lhs_type, rhs_type) => write!(f, "Operator `{}` is not compatible with {} and {}", op, lhs_type, rhs_type),
+      Error::IncompatibleUnOp(op, rhs_type) => write!(f, "Operator `{}` is not compatible with {}", op, rhs_type),
       Error::HeterogenousArray => write!(f, "Arrays must have all its elements of the same type"),
       Error::EmptyArray => write!(f, "Arrays must have at least one element"),
       Error::UntypedVariable(id) => write!(f, "{} doesn't have a type, all variables must have a type", id),
