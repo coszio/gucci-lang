@@ -111,7 +111,6 @@ pub(crate) enum Expr {
     Constant(Literal),
     Ident(String),
     Array(Vec<Spanned<Self>>),
-    Parenthesized(Box<Spanned<Self>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

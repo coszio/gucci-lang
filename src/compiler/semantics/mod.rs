@@ -172,7 +172,6 @@ pub(crate) fn eval_expr(expr: &mut Expr, span: Span, scope: &Scope) -> Result<Ty
 
     //   Ok(Type::Array(Box::new(types[0].clone())))
     // },
-    Expr::Parenthesized(inner) => eval_expr(&mut inner.0, inner.1.clone(), scope),
     _ => todo!(),
   }
 
@@ -301,7 +300,7 @@ pub(crate) fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<Spa
         let mut subscope = scope.add_child();
 
         for (stmt, span) in then.iter_mut() {
-          (*stmt, _) = eval_stmt(stmt.clone(), span.clone(), scope)?;
+          (*stmt, _) = eval_stmt(stmt.clone(), span.clone(), &mut subscope)?;
         }
 
         *scope = subscope.drop();
@@ -312,7 +311,7 @@ pub(crate) fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<Spa
         let mut subscope = scope.add_child();
 
         for (stmt, span) in else_.iter_mut() {
-          (*stmt, _) = eval_stmt(stmt.clone(), span.clone(), scope)?;
+          (*stmt, _) = eval_stmt(stmt.clone(), span.clone(), &mut subscope)?;
         }
 
         *scope = subscope.drop();
@@ -339,9 +338,14 @@ pub(crate) fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<Spa
             return Err((Error::NonBooleanCondition(cond_type), span.clone()));
           }
 
+          let mut subscope = scope.add_child();
+
           for (stmt, span) in body.iter_mut() {
-            (*stmt, _) = eval_stmt(stmt.clone(), span.clone(), scope)?;
+            (*stmt, _) = eval_stmt(stmt.clone(), span.clone(), &mut subscope)?;
           }
+
+          *scope = subscope.drop();
+
 
           Ok((Stmt::Loop(Loop::While { cond, body }), span))
         },
@@ -354,8 +358,9 @@ pub(crate) fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<Spa
 
     
     Stmt::Return((mut e, s)) => { 
-      eval_expr(&mut e, s.clone(), &scope)?; 
-      Ok((Stmt::Return((e, s)),span))
+      todo!("return expressions can only be in the root scope of a function, for now");
+      // eval_expr(&mut e, s.clone(), &scope)?; 
+      // Ok((Stmt::Return((e, s)),span))
     },
 
     Stmt::Print((mut e, s)) => {

@@ -178,7 +178,6 @@ fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
             dest
         }
         Expr::Array(_) => todo!(),
-        Expr::Parenthesized(inner) => translate_expr(output, inner.0),
         _ => todo!(),
     }
 }
