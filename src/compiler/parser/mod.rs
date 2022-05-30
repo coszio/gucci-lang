@@ -395,6 +395,9 @@ pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<
             .map(|(name, should_do)| 
                 Stmt::Decl(Decl::Interface { name, should_do }));
 
+        let print_stmt = just(Token::Print)
+            .ignore_then(expr.clone())
+            .map(|value| Stmt::Print(value));
 
         // All possible statements
         let stmt = choice((
@@ -402,6 +405,7 @@ pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<
             //   assign,
               return_,
               expr_stmt,
+              print_stmt,
             ))
             .then_ignore(just(Token::Ctrl(';')))
             .or(choice((
@@ -1461,6 +1465,27 @@ a + 4 / call();
                     }, 1..15),
                   ),
                 1..16
+            )
+        );
+    }
+
+    #[test]
+    fn test_print_stmt() {
+        let src = "
+print a;
+";
+
+        let stmts = parse_from(src);
+
+        println!("{:?}", stmts);
+
+        assert_eq!(
+            stmts[0],
+            (
+                Stmt::Print(
+                    (Expr::Ident( "a".to_string()), 7..8),
+                ),
+                1..9
             )
         );
     }

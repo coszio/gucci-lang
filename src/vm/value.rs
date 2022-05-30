@@ -1,8 +1,8 @@
-use std::ops;
+use std::{ops, fmt::Display};
+use std::io::Write;
+use crate::compiler::parser::ast::{Literal, Type};
 
-use crate::compiler::parser::ast::Literal;
-
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub(crate) enum Value {
     Int(i32),
     Float(f32),
@@ -17,6 +17,28 @@ impl From<Literal> for Value {
             Literal::Char(c) => Self::Char(c),
             Literal::Bool(b) => Self::Bool(b),
             Literal::String(_) => unimplemented!(),
+        }
+    }
+}
+
+impl Into<Type> for Value {
+    fn into(self) -> Type {
+        match self {
+            Value::Int(_) => Type::Int,
+            Value::Float(_) => Type::Float,
+            Value::Char(_) => Type::Char,
+            Value::Bool(_) => Type::Bool,
+        }
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Int(i) => write!(f, "{}", *i),
+            Value::Float(f_) => write!(f, "{}", *f_),
+            Value::Char(c) => write!(f, "{}", *c),
+            Value::Bool(b) => write!(f, "{}", *b),
         }
     }
 }

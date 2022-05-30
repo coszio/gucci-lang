@@ -67,56 +67,47 @@ impl Program {
         }
     }
 
-    fn parse_op_quad(&self, quad: &Quad) -> (Value, Value, usize, &Table) {
+    fn execute_binop(&mut self, quad: &Quad, resolve: fn(Value, Value) -> Value) {
+
         let Quad {op: _, arg1: a, arg2: b, arg3: r } = quad;
 
         let table_id = &a[0..1];
+        let a_id = &a[1..].parse::<usize>().unwrap();
         let table_a = self.get_table(table_id);
 
         let table_id = &b[0..1];
-        let table_b = self.get_table(table_id);
-
-        let table_id = &r[0..1];
-        let table_r = self.get_table(table_id);
-
-        let a_id = &a[1..].parse::<usize>().unwrap();
         let b_id = &b[1..].parse::<usize>().unwrap();
-        let r_id = r[1..].parse::<usize>().unwrap();
-
+        let table_b = self.get_table(table_id);
+        
         // shadow args with their values
         let a = table_a.get_val(a_id);
         let b = table_b.get_val(b_id);
+        
+        // get result
+        let res = resolve(a, b);
+        
+        let table_id = &r[0..1];
+        let r_id = r[1..].parse::<usize>().unwrap();
 
-        (a, b, r_id, table_r)
+        // if the operation assigns to a temp, it means it is a new temp variable
+        if table_id == "t" {
+            self.temps.insert(r_id, res.clone().into());
+        }
+
+        // assign
+        let r_table = self.get_table(table_id);
+
+        r_table.set_val(&r_id, res);
     }
 
-    fn execute(&mut self, quad: &Quad) {
+
+    pub(crate) fn execute(&mut self, quad: &Quad) {
         match quad.op {
-            OpCode::Assign => {
-                let (a, _, r_id, table_r) = self.parse_op_quad(quad);
-
-                table_r.set_val(&r_id, a);
-            },
-            OpCode::Add => {
-                let (a, b, r_id, r_table) = self.parse_op_quad(quad);
-
-                r_table.set_val(&r_id, a + b);
-            },
-            OpCode::Sub => {
-                let (a, b, r_id, r_table) = self.parse_op_quad(quad);
-
-                r_table.set_val(&r_id, a - b);
-            },
-            OpCode::Mul => {
-                let (a, b, r_id, r_table) = self.parse_op_quad(quad);
-
-                r_table.set_val(&r_id, a * b);
-            },
-            OpCode::Div => {
-                let (a, b, r_id, r_table) = self.parse_op_quad(quad);
-
-                r_table.set_val(&r_id, a / b);
-            },
+            OpCode::Assign => self.execute_binop(quad, |a, _| a),
+            OpCode::Add => self.execute_binop(quad, |a, b| a + b),
+            OpCode::Sub => self.execute_binop(quad, |a, b| a - b),
+            OpCode::Mul => self.execute_binop(quad, |a, b| a * b),
+            OpCode::Div => self.execute_binop(quad, |a, b| a / b),
             // OpCode::Eq => {
             //     let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
@@ -147,16 +138,8 @@ impl Program {
 
             //     r_table.set_val(&r_id, a >= b);
             // },
-            OpCode::And => {
-                let (a, b, r_id, r_table) = self.parse_op_quad(quad);
-
-                r_table.set_val(&r_id, Value::Bool(a.to_bool() && b.to_bool()));
-            },
-            OpCode::Or => {
-                let (a, b, r_id, r_table) = self.parse_op_quad(quad);
-
-                r_table.set_val(&r_id, Value::Bool(a.to_bool() || b.to_bool()));
-            },
+            OpCode::And => self.execute_binop(quad, |a, b| Value::Bool(a.to_bool() && b.to_bool())),
+            OpCode::Or => self.execute_binop(quad, |a, b| Value::Bool(a.to_bool() || b.to_bool())),
             OpCode::NewVar => {
                 let Quad {
                     op: _,
@@ -177,7 +160,7 @@ impl Program {
             OpCode::Goto => {
                 let ip = quad.arg2.parse::<usize>().unwrap();
 
-                self.ip = ip;
+                self.ip = ip - 1;
             },
             OpCode::GotoF => {
                 // get condition value
@@ -189,7 +172,7 @@ impl Program {
                 let cond = cond_table.get_val(cond_id);
                 if !cond.to_bool() {
                     let ip = quad.arg2.parse::<usize>().unwrap();
-                    self.ip = ip;
+                    self.ip = ip - 1;
                 }
             },
             OpCode::GotoT => {
@@ -202,11 +185,29 @@ impl Program {
                 let cond = cond_table.get_val(cond_id);
                 if cond.to_bool() {
                     let ip = quad.arg2.parse::<usize>().unwrap();
-                    self.ip = ip;
+                    self.ip = ip - 1;
                 }
             },
 
+            OpCode::Print => {
+                let a = &quad.arg1;
+                let a_table = self.get_table(&a[0..1]);
+                let a_id = &a[1..].parse::<usize>().unwrap();
+
+                let a = a_table.get_val(a_id);
+                print!("{}", a);
+            }
+            OpCode::End => {
+                self.ip = self.instrs.len();
+            }
             _ => todo!(),
+        }
+    }
+    fn run(&mut self) {
+        while self.ip < self.instrs.len() {
+            let quad = self.instrs[self.ip].clone();
+            self.execute(&quad);
+            self.ip += 1;
         }
     }
 }
@@ -227,5 +228,13 @@ mod tests {
         assert_eq!(prog.consts.len(), 6);
         assert_eq!(prog.vars.len(), 0);
         assert_eq!(prog.temps.len(), 1);
+    }
+
+    #[test]
+    fn test_run() {
+        let mut prog = Program::new();
+        prog.load("src/vm/tests/test_run.bs");
+
+        prog.run();
     }
 }

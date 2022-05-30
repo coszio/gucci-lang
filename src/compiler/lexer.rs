@@ -60,6 +60,7 @@ pub(crate) enum Token {
     This,
     Has,
     Does,
+    Print,
 }
 
 impl Display for Token {
@@ -90,6 +91,7 @@ impl Display for Token {
             Token::This => write!(f, "this"),
             Token::Has => write!(f, "has"),
             Token::Does => write!(f, "does"),
+            Token::Print => write!(f, "print"),
         }
     }
 }
@@ -119,6 +121,7 @@ pub(crate) fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<ch
         "this" => Token::This,
         "has" => Token::Has,
         "does" => Token::Does,
+        "print" => Token::Print,
         _ => Token::Ident(s),
     });
 
@@ -247,7 +250,7 @@ let z = x + y;
     #[test]
     fn test_keywords() {
         let src = "
-if else while for in return fun let class interface inherits implements this does has
+if else while for in return fun let class interface inherits implements this does has print
 ";
         let (tokens, errs) = lexer().parse_recovery(src);
 
@@ -271,8 +274,9 @@ if else while for in return fun let class interface inherits implements this doe
         assert_eq!(tokens[12], (Token::This, 73..77));
         assert_eq!(tokens[13], (Token::Does, 78..82));
         assert_eq!(tokens[14], (Token::Has, 83..86));
+        assert_eq!(tokens[15], (Token::Print, 87..92));
 
-        assert_eq!(tokens.len(), 15);
+        assert_eq!(tokens.len(), 16);
     }
 
     #[test]

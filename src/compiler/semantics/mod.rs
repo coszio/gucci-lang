@@ -326,12 +326,18 @@ pub(crate) fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<Spa
       Ok((Stmt::Expr((e, s)), span))
     },
 
-    Stmt::Error => todo!(),
-
+    
     Stmt::Return((mut e, s)) => { 
       eval_expr(&mut e, s.clone(), &scope)?; 
       Ok((Stmt::Return((e, s)),span))
     },
+
+    Stmt::Print((mut e, s)) => {
+      eval_expr(&mut e, s.clone(), &scope)?;
+      Ok((Stmt::Print((e, s)), span))
+    },
+    
+    Stmt::Error => todo!(),
     _ => todo!(),
   }
 }
@@ -345,17 +351,19 @@ pub(crate) fn semantic_analysis(stmts: Block) -> std::result::Result<Block, Vec<
     .map(|(stmt, span)| eval_stmt(stmt.clone(), span.clone(), &mut scope))
     .collect();
     
+  // Extract errors
   let errors: Vec<Spanned<Error>> = result.clone()
     .into_iter()
     .filter_map(|res| res.err())
     .collect();
 
-  let stmts: Block = result
-    .into_iter()
-    .filter_map(|res| res.ok())
-    .collect();
-
   if errors.is_empty() {
+    // Extract correct statements
+    let stmts: Block = result
+      .into_iter()
+      .filter_map(|res| res.ok())
+      .collect();
+
     return Ok(stmts)
   }
 

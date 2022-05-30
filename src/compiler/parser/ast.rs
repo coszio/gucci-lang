@@ -21,6 +21,7 @@ pub(crate) enum Stmt {
     Loop(Loop),
     Expr(Spanned<Expr>),
     Return(Spanned<Expr>),
+    Print(Spanned<Expr>),
     Error,
 }
 

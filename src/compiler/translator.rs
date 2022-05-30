@@ -423,6 +423,16 @@ fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
         },
         Stmt::Expr((expr, _)) => translate_expr(output, expr),
         Stmt::Return((expr, _)) => translate_expr(output, expr),
+        Stmt::Print((expr, _)) => {
+            let res = translate_expr(output, expr);
+            output.quads.push(Quad {
+                op: OpCode::Print,
+                arg1: res,
+                arg2: "".to_string(),
+                arg3: "".to_string(),
+            });
+            "".to_string()
+        }
         Stmt::Error => unreachable!(),
     }
 }
