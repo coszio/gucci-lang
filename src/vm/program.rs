@@ -9,7 +9,7 @@ use super::memory::Table;
 use super::*;
 
 #[derive(Debug)]
-struct Program {
+pub struct Program {
     memory: Rc<RefCell<memory::Memory>>,
     vars: memory::Table,
     consts: memory::Table,
@@ -20,7 +20,7 @@ struct Program {
 }
 
 impl Program {
-    fn new() -> Self {
+    pub fn new() -> Self {
         let mem = memory::Memory::new();
         Self {
             memory: Rc::clone(&mem),
@@ -33,7 +33,7 @@ impl Program {
         }
     }
 
-    fn load(&mut self, path: &str) {
+    pub fn load(&mut self, path: &str) -> &mut Self {
         let (funs, consts, instrs) = reader::load_obj(path);
 
         for fun in funs {
@@ -48,6 +48,8 @@ impl Program {
         }
 
         self.instrs = instrs;
+
+        self
     }
 
     fn get_table(&self, id: &str) -> &memory::Table {
@@ -74,14 +76,16 @@ impl Program {
         let table_id = &a[0..1];
         let a_id = &a[1..].parse::<usize>().unwrap();
         let table_a = self.get_table(table_id);
-
-        let table_id = &b[0..1];
-        let b_id = &b[1..].parse::<usize>().unwrap();
-        let table_b = self.get_table(table_id);
-        
-        // shadow args with their values
         let a = table_a.get_val(a_id);
-        let b = table_b.get_val(b_id);
+
+        let b = if b.len() > 0 {
+            let table_id = &b[0..1];
+            let b_id = &b[1..].parse::<usize>().unwrap();
+            let table_b = self.get_table(table_id);
+            table_b.get_val(b_id)
+        } else {
+            Value::Bool(false)
+        };
         
         // get result
         let res = resolve(a, b);
@@ -102,12 +106,13 @@ impl Program {
 
 
     pub(crate) fn execute(&mut self, quad: &Quad) {
-        match quad.op {
+        match &quad.op {
             OpCode::Assign => self.execute_binop(quad, |a, _| a),
             OpCode::Add => self.execute_binop(quad, |a, b| a + b),
             OpCode::Sub => self.execute_binop(quad, |a, b| a - b),
             OpCode::Mul => self.execute_binop(quad, |a, b| a * b),
             OpCode::Div => self.execute_binop(quad, |a, b| a / b),
+            OpCode::Gte => self.execute_binop(quad, |a, b| Value::Bool(a >= b)),
             // OpCode::Eq => {
             //     let (a, b, r_id, r_table) = self.parse_op_quad(quad);
 
@@ -195,15 +200,15 @@ impl Program {
                 let a_id = &a[1..].parse::<usize>().unwrap();
 
                 let a = a_table.get_val(a_id);
-                print!("{}", a);
+                println!("{}", a);
             }
             OpCode::End => {
                 self.ip = self.instrs.len();
             }
-            _ => todo!(),
+            other => todo!("{:?}", other),
         }
     }
-    fn run(&mut self) {
+    pub fn run(&mut self) {
         while self.ip < self.instrs.len() {
             let quad = self.instrs[self.ip].clone();
             self.execute(&quad);

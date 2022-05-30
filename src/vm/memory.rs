@@ -70,7 +70,7 @@ impl Memory {
             Type::Char => {
                 self.chars.new_reg()
             },
-            _ => panic!(),
+            _ => panic!("no table in memory for type {:?}", type_),
         }
     }
   }

@@ -29,21 +29,40 @@ pub(crate) enum Error {
   NonBooleanCondition(Type),
 }
 
+impl Error { 
+  pub(crate) fn msg(&self) -> String {
+    match self {
+      Error::Undefined(key) => format!("`{}` does not exist in this scope", key),
+      Error::TypeMismatch(key, type1, type2) => format!("`{}` has type {}, but is being assigned to {}", key, type1, type2),
+      Error::Redefined(key) => format!("`{}` already exists in this scope", key),
+      Error::NotAVariable(key, kind) => format!("`{}` is a {}, which is not assignable", key, kind),
+      Error::IncompatibleBinOp(op, lhs_type, rhs_type) => format!("Operator `{}` is not compatible with {} and {}", op, lhs_type, rhs_type),
+      Error::IncompatibleUnOp(op, rhs_type) => format!("Operator `{}` is not compatible with {}", op, rhs_type),
+      Error::HeterogenousArray => format!("Arrays must have all its elements of the same type"),
+      Error::EmptyArray => format!("Arrays must have at least one element"),
+      Error::UntypedVariable(id) => format!("{} doesn't have a type, all variables must have a type", id),
+      Error::NotAFunction(name, kind) => format!("`{}` is a {}, which is not a function", name, kind),
+      Error::ArgumentsMismatch(name, params, args) => format!("`{}` takes {} arguments, but {} were given", name, params, args),
+      Error::NonBooleanCondition(type_) => format!("Conditions must evaluate to a boolean, this evaluates to {}", type_),
+    }
+  }
+}
+
 impl Display for Error {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      Error::Undefined(key) => write!(f, "`{}` does not exist in this scope", key),
-      Error::TypeMismatch(key, type1, type2) => write!(f, "`{}` has type {}, but is being assigned to {}", key, type1, type2),
-      Error::Redefined(key) => write!(f, "`{}` already exists in this scope", key),
-      Error::NotAVariable(key, kind) => write!(f, "`{}` is a {}, which is not assignable", key, kind),
-      Error::IncompatibleBinOp(op, lhs_type, rhs_type) => write!(f, "Operator `{}` is not compatible with {} and {}", op, lhs_type, rhs_type),
-      Error::IncompatibleUnOp(op, rhs_type) => write!(f, "Operator `{}` is not compatible with {}", op, rhs_type),
-      Error::HeterogenousArray => write!(f, "Arrays must have all its elements of the same type"),
-      Error::EmptyArray => write!(f, "Arrays must have at least one element"),
-      Error::UntypedVariable(id) => write!(f, "{} doesn't have a type, all variables must have a type", id),
-      Error::NotAFunction(name, kind) => write!(f, "`{}` is a {}, which is not a function", name, kind),
-      Error::ArgumentsMismatch(name, params, args) => write!(f, "`{}` takes {} arguments, but {} were given", name, params, args),
-      Error::NonBooleanCondition(type_) => write!(f, "Conditions must return a boolean, this is returning {}", type_),
+      Error::Undefined(..) => write!(f, "Undefined identifier"),
+      Error::TypeMismatch(..) => write!(f, "Type mismatch"),
+      Error::Redefined(..) => write!(f, "Redefined identifier"),
+      Error::NotAVariable(..) => write!(f, "Not a variable"),
+      Error::IncompatibleBinOp(..) => write!(f, "Invalid binary operation"),
+      Error::IncompatibleUnOp(..) => write!(f, "Invalid unary operation"),
+      Error::HeterogenousArray => write!(f, "Heterogenous array"),
+      Error::EmptyArray => write!(f, "Empty array"),
+      Error::UntypedVariable(..) => write!(f, "Variable without a type"),
+      Error::NotAFunction(..) => write!(f, "Not a function"),
+      Error::ArgumentsMismatch(..) => write!(f, "Argument mismatch"),
+      Error::NonBooleanCondition(..) => write!(f, "Non-boolean condition"),
     }
   }
 }
@@ -104,9 +123,7 @@ pub(crate) fn eval_expr(expr: &mut Expr, span: Span, scope: &Scope) -> Result<Ty
             }
         }
 
-
         Ok(fun_type.unwrap_or_else(|| todo!("function calls without return type are not supported yet")))
-      
     },
     Expr::Binary { lhs, op, rhs } => {
       let lhs_type = eval_expr(&mut lhs.0, lhs.1.clone(), scope)?;
@@ -280,17 +297,25 @@ pub(crate) fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<Spa
         if if_type != Type::Bool {
           return Err((Error::NonBooleanCondition(if_type), span.clone()));
         }
-        
+
+        let mut subscope = scope.add_child();
+
         for (stmt, span) in then.iter_mut() {
           (*stmt, _) = eval_stmt(stmt.clone(), span.clone(), scope)?;
         }
 
+        *scope = subscope.drop();
+
       }
       
       if let Some(else_) = else_.as_mut() {
+        let mut subscope = scope.add_child();
+
         for (stmt, span) in else_.iter_mut() {
           (*stmt, _) = eval_stmt(stmt.clone(), span.clone(), scope)?;
         }
+
+        *scope = subscope.drop();
       }
 
       // Destructure into original shape
@@ -374,8 +399,19 @@ pub(crate) fn semantic_analysis(stmts: Block) -> std::result::Result<Block, Vec<
 #[cfg(test)]
 mod tests {
 
-  use super::*;
-  use serial_test::serial; // we need this because we have global counters, tests would fail in parallel
+  use crate::compiler::{lexer::lexer, parser::parser};
+
+use super::*;
+  use chumsky::{Parser, Stream};
+use serial_test::serial; // we need this because we have global counters, tests would fail in parallel
+
+  fn analyze_from_src(src: &str) -> std::result::Result<Block, Vec<Spanned<Error>>> {
+    let tokens = lexer().parse(src).unwrap();
+    let len = tokens.len();
+    let token_stream = Stream::from_iter(len..len + 1, tokens.into_iter());
+    let ast = parser().parse(token_stream).unwrap();
+    semantic_analysis(ast)
+  }
 
   #[test]
   #[serial]
@@ -464,5 +500,21 @@ mod tests {
         })), 0..0)
       )
     );
+  }
+
+  #[test]
+  #[serial]
+  fn test_scopes() {
+    let src = "
+      let x = 1;
+      if x { 
+        let y = 2;
+        let z = x + y;
+      }
+      print z;
+      ";
+
+    let result = analyze_from_src(src);
+    assert!(result.is_err());
   }
 }

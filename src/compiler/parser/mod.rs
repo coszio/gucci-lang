@@ -421,8 +421,6 @@ pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<
                 interface,
             )))
             .map_with_span(|stmt, span: Span| (stmt, span));
-            
-        stmt.repeated()
 
         stmt.repeated()
     });

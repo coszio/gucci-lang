@@ -1,7 +1,7 @@
 
 mod memory;
 mod reader;
-mod program;
+pub(crate) mod program;
 mod value;
 
 use crate::shared::quad::Quad;
