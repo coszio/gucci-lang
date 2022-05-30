@@ -358,9 +358,9 @@ pub(crate) fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<Spa
 
     
     Stmt::Return((mut e, s)) => { 
-      todo!("return expressions can only be in the root scope of a function, for now");
-      // eval_expr(&mut e, s.clone(), &scope)?; 
-      // Ok((Stmt::Return((e, s)),span))
+      // return expressions can only be in the root scope of a function, for now
+      eval_expr(&mut e, s.clone(), &scope)?; 
+      Ok((Stmt::Return((e, s)), span))
     },
 
     Stmt::Print((mut e, s)) => {
@@ -511,15 +511,16 @@ use serial_test::serial; // we need this because we have global counters, tests 
   #[serial]
   fn test_scopes() {
     let src = "
-      let x = 1;
+      let x: int = 1;
       if x { 
-        let y = 2;
-        let z = x + y;
+        let y: int = 2;
+        let z: int = x + y;
       }
       print z;
       ";
 
     let result = analyze_from_src(src);
+    println!("{:?}", result);
     assert!(result.is_err());
   }
 }
