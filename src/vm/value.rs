@@ -1,7 +1,7 @@
-use std::{ops, fmt::Display};
-use std::io::Write;
 use crate::compiler::parser::ast::{Literal, Type};
 use core::cmp::Ordering;
+use std::io::Write;
+use std::{fmt::Display, ops};
 
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub(crate) enum Value {
@@ -51,6 +51,140 @@ impl Value {
             Value::Float(f) => *f != 0.0,
             Value::Char(c) => *c != '\0',
             Value::Bool(b) => *b,
+        }
+    }
+
+    pub(crate) fn and(&self, other: Value) -> Value {
+        let this = self.to_bool();
+        let other = other.to_bool();
+        Value::Bool(this && other)
+    }
+
+    pub(crate) fn or(&self, other: Value) -> Value {
+        let this = self.to_bool();
+        let other = other.to_bool();
+        Value::Bool(this || other)
+    }
+
+    // fn partial_cmp(self, _rhs: Value) -> Option<Ordering> {
+    //     match self {
+    //         Value::Int(i) => match _rhs {
+    //             Value::Int(j) => Some(i.cmp(&j)),
+    //             Value::Float(j) => Some(i.cmp(&j as f32)),
+    //             _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+    //         },
+    //         Value::Float(i) => match _rhs {
+    //             Value::Int(j) => Some(i.cmp(&j as f32)),
+    //             Value::Float(j) => Some(i.cmp(&j)),
+    //             _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+    //         },
+    //         Value::Char(i) => match _rhs {
+    //             Value::Char(j) => Some(i.cmp(&j)),
+    //             _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+    //         },
+    //         Value::Bool(i) => match _rhs {
+    //             Value::Bool(j) => Some(i.cmp(&j)),
+    //             _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+    //         },
+    //     }
+    
+    pub(crate) fn eq_(self, other: Value) -> Value {
+        Value::Bool(self == other)
+    }
+
+    pub(crate) fn neq(self, other: Value) -> Value {
+        Value::Bool(self != other)
+    }
+
+    pub(crate) fn gte(self, _rhs: Value) -> Value {
+        match self {
+            Value::Int(i) => match _rhs {
+                Value::Int(j) => Value::Bool(i >= j),
+                Value::Float(j) => Value::Bool(i as f32 >= j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Float(i) => match _rhs {
+                Value::Int(j) => Value::Bool(i >= (j as f32)),
+                Value::Float(j) => Value::Bool(i >= j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Char(i) => match _rhs {
+                Value::Char(j) => Value::Bool(i >= j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Bool(i) => match _rhs {
+                Value::Bool(j) => Value::Bool(i >= j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+        }
+    }
+
+    pub(crate) fn gt(self, _rhs: Value) -> Value {
+        match self {
+            Value::Int(i) => match _rhs {
+                Value::Int(j) => Value::Bool(i > j),
+                Value::Float(j) => Value::Bool((i as f32) > j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Float(i) => match _rhs {
+                Value::Int(j) => Value::Bool(i > (j as f32)),
+                Value::Float(j) => Value::Bool(i > j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Char(i) => match _rhs {
+                Value::Char(j) => Value::Bool(i > j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Bool(i) => match _rhs {
+                Value::Bool(j) => Value::Bool(i > j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+        }
+    }
+
+    pub(crate) fn lte(self, _rhs: Value) -> Value {
+        match self {
+            Value::Int(i) => match _rhs {
+                Value::Int(j) => Value::Bool(i <= j),
+                Value::Float(j) => Value::Bool((i as f32) <= j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Float(i) => match _rhs {
+                Value::Int(j) => Value::Bool(i <= (j as f32)),
+                Value::Float(j) => Value::Bool(i <= j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Char(i) => match _rhs {
+                Value::Char(j) => Value::Bool(i <= j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Bool(i) => match _rhs {
+                Value::Bool(j) => Value::Bool(i <= j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+        }
+    }
+
+    pub(crate) fn lt(self, _rhs: Value) -> Value {
+        match self {
+            Value::Int(i) => match _rhs {
+                Value::Int(j) => Value::Bool(i < j),
+                Value::Float(j) => Value::Bool((i as f32) < j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Float(i) => match _rhs {
+                Value::Int(j) => Value::Bool(i < (j as f32)),
+                Value::Float(j) => Value::Bool(i < j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Char(i) => match _rhs {
+                Value::Char(j) => Value::Bool(i < j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
+            Value::Bool(i) => match _rhs {
+                Value::Bool(j) => Value::Bool(i < j),
+                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+            },
         }
     }
 }
@@ -146,170 +280,62 @@ impl ops::Not for Value {
     }
 }
 
-impl PartialEq<Value> for Value {
-    fn eq(self, _rhs:Value) -> Value {
-        match self {
-            Value::Int(i) => match _rhs {
-                Value::Int(j) => Value::Bool(i == j),
-                Value::Float(j) => Value::Bool(i as f32 == j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Float(i) => match _rhs {
-                Value::Int(j) => Value::Bool(i == j as f32),
-                Value::Float(j) => Value::Bool(i == j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Char(i) => match _rhs {
-                Value::Char(j) => Value::Bool(i == j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Bool(i) => match _rhs {
-                Value::Bool(j) => Value::Bool(i == j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-        }
-    }
+// impl PartialEq<Value> for Value {
+// fn eq(&self, other: &Value) -> bool {
+//     match (self, other) {
+//         (Self::Int(l0), Self::Int(r0)) => l0 == r0,
+//         (Self::Float(l0), Self::Float(r0)) => l0 == r0,
+//         (Self::Char(l0), Self::Char(r0)) => l0 == r0,
+//         (Self::Bool(l0), Self::Bool(r0)) => l0 == r0,
+//     }
+// }
+// fn eq(self, _rhs:Value) -> Value {
+//     match self {
+//         Value::Int(i) => match _rhs {
+//             Value::Int(j) => Value::Bool(i == j),
+//             Value::Float(j) => Value::Bool(i as f32 == j),
+//             _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+//         },
+//         Value::Float(i) => match _rhs {
+//             Value::Int(j) => Value::Bool(i == j as f32),
+//             Value::Float(j) => Value::Bool(i == j),
+//             _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+//         },
+//         Value::Char(i) => match _rhs {
+//             Value::Char(j) => Value::Bool(i == j),
+//             _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+//         },
+//         Value::Bool(i) => match _rhs {
+//             Value::Bool(j) => Value::Bool(i == j),
+//             _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+//         },
+//     }
+// }
 
-    fn ne(self, _rhs:Value) -> Value {
-        match self {
-            Value::Int(i) => match _rhs {
-                Value::Int(j) => Value::Bool(i != j),
-                Value::Float(j) => Value::Bool(i as f32 != j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Float(i) => match _rhs {
-                Value::Int(j) => Value::Bool(i != j as f32),
-                Value::Float(j) => Value::Bool(i != j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Char(i) => match _rhs {
-                Value::Char(j) => Value::Bool(i != j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Bool(i) => match _rhs {
-                Value::Bool(j) => Value::Bool(i != j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-        }
-    }
-}
+// fn ne(self, _rhs:Value) -> Value {
+//     match self {
+//         Value::Int(i) => match _rhs {
+//             Value::Int(j) => Value::Bool(i != j),
+//             Value::Float(j) => Value::Bool(i as f32 != j),
+//             _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+//         },
+//         Value::Float(i) => match _rhs {
+//             Value::Int(j) => Value::Bool(i != j as f32),
+//             Value::Float(j) => Value::Bool(i != j),
+//             _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+//         },
+//         Value::Char(i) => match _rhs {
+//             Value::Char(j) => Value::Bool(i != j),
+//             _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+//         },
+//         Value::Bool(i) => match _rhs {
+//             Value::Bool(j) => Value::Bool(i != j),
+//             _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
+//         },
+//     }
+// }
+// }
 
-impl PartialOrd<Value> for Value {
-    fn partial_cmp(self, _rhs: Value) -> Option<Ordering> {
-        match self {
-            Value::Int(i) => match _rhs {
-                Value::Int(j) => Some(i.cmp(&j)),
-                Value::Float(j) => Some(i.cmp(&j as f32)),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Float(i) => match _rhs {
-                Value::Int(j) => Some(i.cmp(&j as f32)),
-                Value::Float(j) => Some(i.cmp(&j)),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Char(i) => match _rhs {
-                Value::Char(j) => Some(i.cmp(&j)),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Bool(i) => match _rhs {
-                Value::Bool(j) => Some(i.cmp(&j)),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-        }
-    }
-
-    fn ge(self, _rhs: Value) -> Value {
-        match self {
-            Value::Int(i) => match _rhs {
-                Value::Int(j) => Value::Bool(i >= j),
-                Value::Float(j) => Value::Bool(i as f32 >= j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Float(i) => match _rhs {
-                Value::Int(j) => Value::Bool(i >= j as f32),
-                Value::Float(j) => Value::Bool(i >= j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Char(i) => match _rhs {
-                Value::Char(j) => Value::Bool(i >= j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Bool(i) => match _rhs {
-                Value::Bool(j) => Value::Bool(i >= j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-        }
-    }
-
-    fn gt(self, _rhs: Value) -> Value {
-        match self {
-            Value::Int(i) => match _rhs {
-                Value::Int(j) => Value::Bool(i > j),
-                Value::Float(j) => Value::Bool(i as f32 > j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Float(i) => match _rhs {
-                Value::Int(j) => Value::Bool(i > j as f32),
-                Value::Float(j) => Value::Bool(i > j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Char(i) => match _rhs {
-                Value::Char(j) => Value::Bool(i > j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Bool(i) => match _rhs {
-                Value::Bool(j) => Value::Bool(i > j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-        }
-    }
-
-    fn le(self, _rhs: Value) -> Value {
-        match self {
-            Value::Int(i) => match _rhs {
-                Value::Int(j) => Value::Bool(i <= j),
-                Value::Float(j) => Value::Bool(i as f32 <= j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Float(i) => match _rhs {
-                Value::Int(j) => Value::Bool(i <= j as f32),
-                Value::Float(j) => Value::Bool(i <= j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Char(i) => match _rhs {
-                Value::Char(j) => Value::Bool(i <= j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Bool(i) => match _rhs {
-                Value::Bool(j) => Value::Bool(i <= j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-        }
-    }
-
-    fn lt(self, _rhs: Value) -> Value {
-        match self {
-            Value::Int(i) => match _rhs {
-                Value::Int(j) => Value::Bool(i < j),
-                Value::Float(j) => Value::Bool(i as f32 < j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Float(i) => match _rhs {
-                Value::Int(j) => Value::Bool(i < j as f32),
-                Value::Float(j) => Value::Bool(i < j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Char(i) => match _rhs {
-                Value::Char(j) => Value::Bool(i < j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-            Value::Bool(i) => match _rhs {
-                Value::Bool(j) => Value::Bool(i < j),
-                _ => panic!("Cannot compare {:?} to {:?}", _rhs, self),
-            },
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -349,12 +375,22 @@ mod tests {
 
     #[test]
     fn test_and() {
-        todo!();
+        assert_eq!(Value::Bool(true).and(Value::Bool(true)), Value::Bool(true));
+        assert_eq!(Value::Bool(false).and(Value::Bool(true)), Value::Bool(false));
+        assert_eq!(Value::Bool(false).and(Value::Bool(false)), Value::Bool(false));
+        assert_eq!(Value::Bool(true).and(Value::Bool(false)), Value::Bool(false));
+        assert_eq!(Value::Int(30).and(Value::Float(0.1)), Value::Bool(true));
+        assert_eq!(Value::Char('\0').and(Value::Bool(true)), Value::Bool(false));
     }
 
     #[test]
     fn test_or() {
-        todo!();
+        assert_eq!(Value::Bool(true).or(Value::Bool(true)), Value::Bool(true));
+        assert_eq!(Value::Bool(false).or(Value::Bool(true)), Value::Bool(true));
+        assert_eq!(Value::Bool(false).or(Value::Bool(false)), Value::Bool(false));
+        assert_eq!(Value::Bool(true).or(Value::Bool(false)), Value::Bool(true));
+        assert_eq!(Value::Int(30).or(Value::Float(0.1)), Value::Bool(true));
+        assert_eq!(Value::Char('\0').or(Value::Bool(true)), Value::Bool(true));
     }
 
     #[test]
@@ -364,8 +400,22 @@ mod tests {
     }
 
     #[test]
-    fn test_compare() {
-        todo!();
+    fn test_cmp() {
+        assert_eq!(Value::Int(1).lt(Value::Int(1)), Value::Bool(false));
+        assert_eq!(Value::Int(1).lt(Value::Float(1.3)), Value::Bool(true));
+        assert_eq!(Value::Int(1).gte(Value::Float(1.3)), Value::Bool(false));
+        assert_eq!(Value::Int(2).gte(Value::Float(1.3)), Value::Bool(true));
     }
-}
 
+    #[test]
+    fn test_eq() {
+        assert_eq!(Value::Int(1).eq_(Value::Int(1)), Value::Bool(true));
+        assert_eq!(Value::Int(1).eq_(Value::Int(0)), Value::Bool(false));
+        assert_eq!(Value::Int(1).eq_(Value::Float(1.3)), Value::Bool(false));
+        assert_eq!(Value::Int(1).neq(Value::Int(1)), Value::Bool(false));
+        assert_eq!(Value::Int(1).neq(Value::Int(0)), Value::Bool(true));
+        assert_eq!(Value::Int(1).neq(Value::Float(1.3)), Value::Bool(true));
+    }
+
+
+}

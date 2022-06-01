@@ -34,8 +34,5 @@
 // }
 // print 'f';
 
-let x: int = 10;
-while x >= 0 {
-  x = x - 1;
-}
-print 'k';
+
+print !'a' || 'k' < 'b';

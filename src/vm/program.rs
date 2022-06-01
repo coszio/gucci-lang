@@ -119,39 +119,15 @@ impl Program {
             OpCode::Sub => self.execute_binop(quad, |a, b| a - b),
             OpCode::Mul => self.execute_binop(quad, |a, b| a * b),
             OpCode::Div => self.execute_binop(quad, |a, b| a / b),
-            OpCode::Gte => self.execute_binop(quad, |a, b| Value::Bool(a >= b)),
-            // OpCode::Eq => {
-            //     let (a, b, r_id, r_table) = self.parse_op_quad(quad);
-
-            //     r_table.set_val(&r_id, a == b);
-            // },
-            // OpCode::Neq => {
-            //     let (a, b, r_id, r_table) = self.parse_op_quad(quad);
-
-            //     r_table.set_val(&r_id, a != b);
-            // },
-            // OpCode::Lt => {
-            //     let (a, b, r_id, r_table) = self.parse_op_quad(quad);
-
-            //     r_table.set_val(&r_id, a < b);
-            // },
-            // OpCode::Gt => {
-            //     let (a, b, r_id, r_table) = self.parse_op_quad(quad);
-
-            //     r_table.set_val(&r_id, a > b);
-            // },
-            // OpCode::Lte => {
-            //     let (a, b, r_id, r_table) = self.parse_op_quad(quad);
-
-            //     r_table.set_val(&r_id, a <= b);
-            // },
-            // OpCode::Gte => {
-            //     let (a, b, r_id, r_table) = self.parse_op_quad(quad);
-
-            //     r_table.set_val(&r_id, a >= b);
-            // },
-            OpCode::And => self.execute_binop(quad, |a, b| Value::Bool(a.to_bool() && b.to_bool())),
-            OpCode::Or => self.execute_binop(quad, |a, b| Value::Bool(a.to_bool() || b.to_bool())),
+            OpCode::Gte => self.execute_binop(quad, |a, b| a.gte(b)),
+            OpCode::Gt => self.execute_binop(quad, |a, b| a.gt(b)),
+            OpCode::Lte => self.execute_binop(quad, |a, b| a.lte(b)),
+            OpCode::Lt => self.execute_binop(quad, |a, b| a.lt(b)),
+            OpCode::Eq => self.execute_binop(quad, |a, b| a.eq_(b)),
+            OpCode::Neq => self.execute_binop(quad, |a, b| a.neq(b)),
+            OpCode::Not => self.execute_binop(quad, |a, _| !a),            
+            OpCode::And => self.execute_binop(quad, |a, b| a.and(b)),
+            OpCode::Or => self.execute_binop(quad, |a, b| a.or(b)),
             OpCode::NewVar => {
                 let Quad {
                     op: _,
