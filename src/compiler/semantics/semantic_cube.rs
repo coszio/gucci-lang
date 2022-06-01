@@ -76,7 +76,6 @@ pub(crate) fn resolve(lhs: &Type, op: &BinOp, rhs: &Type) -> std::result::Result
             Type::Char => match op {
                 BinOp::Add => Type::Char,
                 BinOp::Sub => Type::Char,
-                BinOp::Mul => Type::String,
                 BinOp::Eq => Type::Bool,
                 BinOp::Ne => Type::Bool,
                 BinOp::Lt => Type::Bool,

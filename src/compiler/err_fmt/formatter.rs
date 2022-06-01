@@ -37,7 +37,7 @@ impl Error {
                     .with_message(sem_err.to_string())
                     .with_label(
                         Label::new((src.clone(), span))
-                            .with_message(sem_err.to_string())
+                            .with_message(sem_err.msg())
                             .with_color(Color::Red),
                     )
                     .finish()

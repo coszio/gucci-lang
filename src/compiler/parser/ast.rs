@@ -20,6 +20,7 @@ pub(crate) enum Stmt {
     Loop(Loop),
     Expr(Spanned<Expr>),
     Return(Spanned<Expr>),
+    Print(Spanned<Expr>),
     Error,
 }
 
@@ -110,7 +111,6 @@ pub(crate) enum Expr {
     Constant(Literal),
     Ident(String),
     Array(Vec<Spanned<Self>>),
-    Parenthesized(Box<Spanned<Self>>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -168,8 +168,8 @@ pub(crate) enum UnOp {
 impl Display for UnOp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UnOp::Not => write!(f, "-"),
-            UnOp::Neg => write!(f, "!"),
+            UnOp::Not => write!(f, "!"),
+            UnOp::Neg => write!(f, "-"),
         }
     }
 }

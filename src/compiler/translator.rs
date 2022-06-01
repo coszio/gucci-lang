@@ -91,13 +91,21 @@ fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
             let lhs_res = translate_expr(output, lhs.0);
             let rhs_res = translate_expr(output, rhs.0);
 
-            let dest = TEMP_COUNTER.new_id();
-
-            let this = Quad {
-                op: OpCode::try_from(op).unwrap(), // todo: handle chain operator
-                arg1: lhs_res,
-                arg2: rhs_res,
-                arg3: dest.clone(),
+            let (this, dest) = if op == BinOp::Assign {
+                (Quad {
+                    op: OpCode::Assign,
+                    arg1: rhs_res,
+                    arg2: "".to_string(),
+                    arg3: lhs_res.clone(),
+                }, lhs_res)
+            } else { 
+                let dest = TEMP_COUNTER.new_id();
+                (Quad {
+                    op: OpCode::try_from(op).unwrap(), // todo: handle chain operator
+                    arg1: lhs_res,
+                    arg2: rhs_res,
+                    arg3: dest.clone(),
+                }, dest)
             };
 
             output.quads.push(this);
@@ -178,7 +186,6 @@ fn translate_expr(output: &mut BigSheep, expr: Expr) -> String {
             dest
         }
         Expr::Array(_) => todo!(),
-        Expr::Parenthesized(inner) => translate_expr(output, inner.0),
         _ => todo!(),
     }
 }
@@ -423,6 +430,16 @@ fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
         },
         Stmt::Expr((expr, _)) => translate_expr(output, expr),
         Stmt::Return((expr, _)) => translate_expr(output, expr),
+        Stmt::Print((expr, _)) => {
+            let res = translate_expr(output, expr);
+            output.quads.push(Quad {
+                op: OpCode::Print,
+                arg1: res,
+                arg2: "".to_string(),
+                arg3: "".to_string(),
+            });
+            "".to_string()
+        }
         Stmt::Error => unreachable!(),
     }
 }
@@ -757,20 +774,20 @@ mod tests {
             "      =       ,      c0      ,              ,      v1",       
             "      EQ      ,      v0      ,      c1      ,      t1",       
             "    GOTOF     ,      t1      ,      10      ,        ",
-            "      =       ,      v1      ,      c2      ,      t2",       
+            "      =       ,      c2      ,              ,      v1",       
             "     GOTO     ,              ,      23      ,        ",
-            "      GT      ,      v0      ,      c3      ,      t3",       
-            "    GOTOF     ,      t3      ,      23      ,        ",
-            "     SUB      ,      v0      ,      c4      ,      t4",       
-            "    PARAM     ,      t4      ,              ,      p0",       
+            "      GT      ,      v0      ,      c3      ,      t2",       
+            "    GOTOF     ,      t2      ,      23      ,        ",
+            "     SUB      ,      v0      ,      c4      ,      t3",       
+            "    PARAM     ,      t3      ,              ,      p0",       
             "    GOSUB     ,      f0      ,      1       ,        ",
-            "      =       ,      t0      ,              ,      t5",       
-            "     SUB      ,      v0      ,      c5      ,      t6",       
-            "    PARAM     ,      t6      ,              ,      p0",       
+            "      =       ,      t0      ,              ,      t4",       
+            "     SUB      ,      v0      ,      c5      ,      t5",       
+            "    PARAM     ,      t5      ,              ,      p0",       
             "    GOSUB     ,      f0      ,      1       ,        ",
-            "      =       ,      t0      ,              ,      t7",       
-            "     ADD      ,      t5      ,      t7      ,      t8",       
-            "      =       ,      v1      ,      t8      ,      t9",       
+            "      =       ,      t0      ,              ,      t6",       
+            "     ADD      ,      t4      ,      t6      ,      t7",       
+            "      =       ,      t7      ,              ,      v1",       
             "     GOTO     ,              ,      23      ,        ",
             "      =       ,      v1      ,              ,      t0",       
             "     GOTO     ,              ,      25      ,        ",       

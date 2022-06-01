@@ -1,0 +1,9 @@
+%%
+      c0      , c:a
+      c1      , c:k
+      c2      , c:b
+%%
+   0.      LT      ,      c1      ,      c2      ,      t0      
+   1.      OR      ,      c0      ,      t0      ,      t1      
+   2.    PRINT     ,      t1      ,              ,              
+   3.     END      ,              ,              ,              

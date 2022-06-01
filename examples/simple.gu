@@ -17,15 +17,22 @@
 //   return true;
 // }
 
-let i: float = 2.0;
-let j: int = 1;
-let k: bool = true;
+// let i: float = 2.0;
+// let j: int = 1;
+// let c: bool = true;
+// 
+// if ((i - i) * 2) >= j || c && false {
+//   let a: int = 4;
+//   print a;
+// } else if false {
+//   let b: bool = true;
+//   print b;
+// } else {
+//   let g: float = 10000 + 30 - 2.1;
+//   i = g;
+//   print g;
+// }
+// print 'f';
 
-if ((i - i) * 2) >= j || k && false {
-  let IF: int = 4;
-} else if false {
-  let ELSE_IF: bool = true;
-} else {
-  let ELSE: int = 10000 + 30 - false;
-  ELSE = j;
-}
+
+print !'a' || 'k' < 'b';

@@ -17,6 +17,7 @@ pub(crate) enum OpCode {
     NewVar,
     GoSub,
     End,
+    Print,
 
     // From UnOp
     Neg,
@@ -51,6 +52,7 @@ impl Display for OpCode {
             OpCode::GoSub => write!(f, "GOSUB"),
             OpCode::Param => write!(f, "PARAM"),
             OpCode::End => write!(f, "END"),
+            OpCode::Print => write!(f, "PRINT"),
 
             // UnOps
             OpCode::Neg => write!(f, "NEG"),
@@ -125,6 +127,7 @@ impl FromStr for OpCode {
             "GOSUB" => OpCode::GoSub,
             "NEWVAR" => OpCode::NewVar,
             "END" => OpCode::End,
+            "PRINT" => OpCode::Print,
 
             "ADD" => OpCode::Add,
             "SUB" => OpCode::Sub,
