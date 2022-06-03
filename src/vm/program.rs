@@ -1,10 +1,10 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::compiler::parser::ast::Type;
+use crate::compiler::parser::ast::{Type, Var};
 use crate::shared::quad::Quad;
 
-use super::value::Value;
 use super::memory::Table;
+use super::value::Value;
 
 use super::*;
 
@@ -14,8 +14,11 @@ pub struct Program {
     vars: memory::Table,
     consts: memory::Table,
     temps: memory::Table,
+    params: memory::Table,
+    var_stack: Vec<Vec<usize>>,
     funs: HashMap<usize, usize>,
     instrs: Vec<Quad>,
+    ip_stack: Vec<usize>,
     ip: usize,
 }
 
@@ -27,8 +30,11 @@ impl Program {
             vars: memory::Table::new(&mem),
             consts: memory::Table::new(&mem),
             temps: memory::Table::new(&mem),
+            params: memory::Table::new(&mem),
+            var_stack: vec![vec![]],
             funs: HashMap::new(),
             instrs: Vec::new(),
+            ip_stack: Vec::new(),
             ip: 0,
         }
     }
@@ -39,11 +45,11 @@ impl Program {
         for fun in funs {
             self.funs.insert(fun.id, fun.pointer);
             if let Some((ret_type, id)) = fun.ret {
-                self.temps.insert(id, ret_type);
+                self.temps.alloc(id, ret_type);
             }
         }
         for const_ in consts {
-            self.consts.insert(const_.id, const_.value.clone().into());
+            self.consts.alloc(const_.id, const_.value.clone().into());
             self.consts.set_val(&const_.id, const_.value.into());
         }
 
@@ -57,6 +63,7 @@ impl Program {
             "v" => &self.vars,
             "c" => &self.consts,
             "t" => &self.temps,
+            "p" => &self.params,
             _ => panic!("invalid table id"),
         }
     }
@@ -65,6 +72,7 @@ impl Program {
             "v" => &mut self.vars,
             "c" => &mut self.consts,
             "t" => &mut self.temps,
+            "p" => &mut self.params,
             _ => panic!("invalid table id"),
         }
     }
@@ -75,16 +83,20 @@ impl Program {
         let table = self.get_mut_table(table_id);
         let val = table.get_val(id);
 
-        // if a temp has been used, we need to drop it
-        if table_id == "t" {
+        // if a temp or param has been used, we need to drop it
+        if ["t", "p"].contains(&table_id) {
             table.remove(id);
         }
 
         val
     }
     fn execute_binop(&mut self, quad: &Quad, resolve: fn(Value, Value) -> Value) {
-
-        let Quad {op: _, arg1: a, arg2: b, arg3: r } = quad;
+        let Quad {
+            op: _,
+            arg1: a,
+            arg2: b,
+            arg3: r,
+        } = quad;
 
         let a = self.get_var(a);
 
@@ -93,16 +105,16 @@ impl Program {
         } else {
             Value::Bool(false)
         };
-        
+
         // get result
         let res = resolve(a, b);
-        
+
         let table_id = &r[0..1];
         let r_id = r[1..].parse::<usize>().unwrap();
 
         // if the operation assigns to a temp, it means it is a new temp variable
         if table_id == "t" {
-            self.temps.insert(r_id, res.clone().into());
+            self.temps.alloc(r_id, res.clone().into());
         }
 
         // assign
@@ -110,7 +122,6 @@ impl Program {
 
         r_table.set_val(&r_id, res);
     }
-
 
     pub(crate) fn execute(&mut self, quad: &Quad) {
         match &quad.op {
@@ -125,7 +136,7 @@ impl Program {
             OpCode::Lt => self.execute_binop(quad, |a, b| a.lt(b)),
             OpCode::Eq => self.execute_binop(quad, |a, b| a.eq_(b)),
             OpCode::Neq => self.execute_binop(quad, |a, b| a.neq(b)),
-            OpCode::Not => self.execute_binop(quad, |a, _| !a),            
+            OpCode::Not => self.execute_binop(quad, |a, _| !a),
             OpCode::And => self.execute_binop(quad, |a, b| a.and(b)),
             OpCode::Or => self.execute_binop(quad, |a, b| a.or(b)),
             OpCode::NewVar => {
@@ -143,13 +154,14 @@ impl Program {
 
                 let type_ = type_.parse::<Type>().unwrap();
 
-                table.insert(id, type_);
-            },
+                table.alloc(id, type_);
+                self.var_stack.last_mut().unwrap().push(id);
+            }
             OpCode::Goto => {
                 let ip = quad.arg2.parse::<usize>().unwrap();
 
                 self.ip = ip - 1;
-            },
+            }
             OpCode::GotoF => {
                 // get condition value
                 let cond = &quad.arg1;
@@ -162,7 +174,7 @@ impl Program {
                     let ip = quad.arg2.parse::<usize>().unwrap();
                     self.ip = ip - 1;
                 }
-            },
+            }
             OpCode::GotoT => {
                 // get condition value
                 let cond = &quad.arg1;
@@ -175,18 +187,62 @@ impl Program {
                     let ip = quad.arg2.parse::<usize>().unwrap();
                     self.ip = ip - 1;
                 }
-            },
+            }
+            OpCode::GoSub => {
+                // add current ip to the stack
+                self.ip_stack.push(self.ip);
+
+                // go to function
+                let ip = quad.arg2.parse::<usize>().unwrap();
+                self.ip = ip - 1;
+            }
+            OpCode::EndSub => {
+                // pop ip from stack
+                self.ip = self.ip_stack.pop().unwrap();
+            }
 
             OpCode::Print => {
+                // parse variable
                 let a = &quad.arg1;
                 let a_table = self.get_table(&a[0..1]);
                 let a_id = &a[1..].parse::<usize>().unwrap();
 
+                // print its value
                 let a = a_table.get_val(a_id);
                 println!("{}", a);
             }
+            OpCode::BeginBlock => {
+                // begin capturing new variables
+                self.var_stack.push(Vec::new());
+            }
+            OpCode::EndBlock => {
+                // throw away declared variables
+                let block_vars = self.var_stack.pop().unwrap();
+                for id in block_vars {
+                    self.vars.remove(&id);
+                }
+            }
+            OpCode::Param => {
+                // get parameter
+                let a = &quad.arg1;
+                let a_table = self.get_table(&a[0..1]);
+                let a_id = &a[1..].parse::<usize>().unwrap();
+
+                // get destination
+                let r = &quad.arg3;
+                if &r[0..1] != "p" {
+                    panic!("PARAM must be assign to param table");
+                }
+                let r_id = r[1..].parse::<usize>().unwrap();
+
+                // insert into parameters table
+                let a = a_table.get_val(a_id);
+                self.params.alloc(r_id, a.clone().into());
+                self.params.set_val(&r_id, a);
+            }
             OpCode::End => {
                 self.ip = self.instrs.len();
+                self.execute(&Quad::new(OpCode::EndBlock, "", "", ""));
             }
             other => todo!("{:?}", other),
         }
@@ -199,7 +255,6 @@ impl Program {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

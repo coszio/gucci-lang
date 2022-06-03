@@ -1,9 +1,40 @@
+      f0      ,      1       ,     int      ,      t0      
 %%
       c0      , c:a
-      c1      , c:k
-      c2      , c:b
+      c1      , i:0
+      c2      , i:1
+      c3      , i:1
+      c4      , i:10
+      c5      , i:3
 %%
-   0.      LT      ,      c1      ,      c2      ,      t0      
-   1.      OR      ,      c0      ,      t0      ,      t1      
-   2.    PRINT     ,      t1      ,              ,              
-   3.     END      ,              ,              ,              
+   0.     GOTO     ,              ,      22      ,              
+   1.  BEGINBLOCK  ,              ,              ,              
+   2.    NEWVAR    ,     int      ,      v0      ,              
+   3.      =       ,      p0      ,              ,      v0      
+   4.    NEWVAR    ,     char     ,      v1      ,              
+   5.      =       ,      c0      ,              ,      v1      
+   6.    NEWVAR    ,     int      ,      v2      ,              
+   7.      =       ,      c1      ,              ,      v2      
+   8.      LT      ,      v2      ,      v0      ,      t1      
+   9.    GOTOF     ,      t1      ,      18      ,              
+  10.  BEGINBLOCK  ,              ,              ,              
+  11.    PRINT     ,      v1      ,              ,              
+  12.     ADD      ,      v1      ,      c2      ,      t2      
+  13.      =       ,      t2      ,              ,      v1      
+  14.     ADD      ,      v2      ,      c3      ,      t3      
+  15.      =       ,      t3      ,              ,      v2      
+  16.   ENDBLOCK   ,              ,              ,              
+  17.     GOTO     ,              ,      8       ,              
+  18.      =       ,      v2      ,              ,      t0      
+  19.     GOTO     ,              ,      21      ,              
+  20.   ENDBLOCK   ,              ,              ,              
+  21.    ENDSUB    ,              ,              ,              
+  22.    PARAM     ,      c4      ,              ,      p0      
+  23.    GOSUB     ,      f0      ,      1       ,              
+  24.      =       ,      t0      ,              ,      t4      
+  25.    PARAM     ,      c5      ,              ,      p0      
+  26.    GOSUB     ,      f0      ,      1       ,              
+  27.      =       ,      t0      ,              ,      t5      
+  28.     ADD      ,      t4      ,      t5      ,      t6      
+  29.    PRINT     ,      t6      ,              ,              
+  30.     END      ,              ,              ,              

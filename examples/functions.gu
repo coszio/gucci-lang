@@ -1,0 +1,12 @@
+fun loopy(max: int): int {
+  let c: char = 'a';
+  let i: int = 0;
+  while i < max {
+    print c;
+    c = c + 1;
+    i = i + 1;
+  }
+  return i;
+}
+
+print loopy(100) + loopy(3);

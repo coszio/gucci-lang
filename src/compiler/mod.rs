@@ -11,7 +11,12 @@ pub(crate) mod semantics;
 pub(crate) mod translator;
 pub(crate) mod err_fmt;
 
-pub(crate) fn compile(filename: &str) -> Option<String> {
+pub fn compile(filename: &str) -> Option<String> {
+
+    if !filename.ends_with(".gu") {
+        panic!("Gucci files should have the extension .gu");
+    }
+
     let src = fs::read_to_string(filename.clone())
         .expect("Failed to read file");
 
@@ -19,12 +24,12 @@ pub(crate) fn compile(filename: &str) -> Option<String> {
     let (tokens, lex_errs) = lexer::lexer().parse_recovery(src.as_str());
     
     // print lexical errors
-    lex_errs.iter().for_each(|e| {
+    for e in lex_errs.iter() {
         Error::from(e)
             .report(filename.clone())
             .print((filename.clone(), Source::from(&src.clone())))
             .unwrap()
-    });
+    };
     
     let tokens = tokens.unwrap();
 
@@ -34,23 +39,23 @@ pub(crate) fn compile(filename: &str) -> Option<String> {
     let (stmts, parse_errs) = parser::parser().parse_recovery(stream);
     
     // print parsing errors
-    parse_errs.iter().for_each(|e| {
+    for e in parse_errs.iter() {
         Error::from(e)
             .report(filename.clone())
             .print((filename.clone(), Source::from(&src.clone())))
             .unwrap()
-    });
+    };
 
     // Check types
     let res = semantics::semantic_analysis(stmts.clone().unwrap());
 
     if let Err(errs) = res {
-        errs.iter().for_each(|e| {
+        for e in errs.iter() {
             Error::from(e)
                 .report(filename.clone())
                 .print((filename.clone(), Source::from(&src.clone())))
                 .unwrap()
-        });
+        };
         None
     } else {
         // Translate only if there were no semantic errors
