@@ -9,4 +9,4 @@ fun loopy(max: int): int {
   return i;
 }
 
-print loopy(100) + loopy(3);
+print loopy(22) + loopy(3);
