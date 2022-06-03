@@ -16,6 +16,7 @@ pub(crate) enum OpCode {
     GotoT,
     NewVar,
     GoSub,
+    EndSub,
     End,
     Print,
 
@@ -50,6 +51,7 @@ impl Display for OpCode {
             OpCode::GotoT => write!(f, "GOTOT"),
             OpCode::NewVar => write!(f, "NEWVAR"),
             OpCode::GoSub => write!(f, "GOSUB"),
+            OpCode::EndSub => write!(f, "ENDSUB"),
             OpCode::Param => write!(f, "PARAM"),
             OpCode::End => write!(f, "END"),
             OpCode::Print => write!(f, "PRINT"),
@@ -125,6 +127,7 @@ impl FromStr for OpCode {
             "GOTOF" => OpCode::GotoF,
             "GOTOT" => OpCode::GotoT,
             "GOSUB" => OpCode::GoSub,
+            "ENDSUB" => OpCode::EndSub,
             "NEWVAR" => OpCode::NewVar,
             "END" => OpCode::End,
             "PRINT" => OpCode::Print,

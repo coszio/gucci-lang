@@ -1,6 +1,6 @@
-use std::{collections::HashMap, rc::Rc, cell::RefCell};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::compiler::parser::ast::{Type, Literal};
+use crate::compiler::parser::ast::{Literal, Type};
 
 use super::value::Value;
 
@@ -58,31 +58,23 @@ impl Memory {
 
     fn new_address(&mut self, type_: &Type) -> usize {
         match type_ {
-            Type::Int => {
-                self.ints.new_reg()
-            },
-            Type::Float => {
-                self.floats.new_reg()
-            },
-            Type::Bool => {
-                self.bools.new_reg()
-            },
-            Type::Char => {
-                self.chars.new_reg()
-            },
+            Type::Int => self.ints.new_reg(),
+            Type::Float => self.floats.new_reg(),
+            Type::Bool => self.bools.new_reg(),
+            Type::Char => self.chars.new_reg(),
             _ => panic!("no table in memory for type {:?}", type_),
         }
     }
-  }
-
+}
 
 #[derive(Debug)]
 struct Var {
-  type_: Type,
-  address: usize,
+    type_: Type,
+    address: usize,
 }
 
 impl Var {
+    /// Gets the value of the variable's address in the given memory.
     fn get(&self, mem: &Memory) -> Value {
         match self.type_ {
             Type::Int => Value::Int(*mem.ints.get_reg(self.address)),
@@ -93,6 +85,7 @@ impl Var {
         }
     }
 
+    /// Sets the value of the variable's address in the given memory.
     fn set(&self, mem: &mut Memory, value: Value) {
         match value {
             Value::Int(i) => mem.ints.set_reg(self.address, i),
@@ -101,6 +94,8 @@ impl Var {
             Value::Bool(b) => mem.bools.set_reg(self.address, b),
         }
     }
+
+    /// Frees the value of the variable's address in the given memory.
     fn free(&self, mem: &mut Memory) {
         match self.type_ {
             Type::Int => mem.ints.free_reg(self.address),
@@ -110,7 +105,6 @@ impl Var {
             _ => panic!("Invalid type"),
         }
     }
-    
 }
 
 #[derive(Debug)]
@@ -127,22 +121,23 @@ impl Table {
         }
     }
 
-    pub(crate) fn insert(&mut self, id: usize, type_: Type) {
+    /// Initializes a new address for a type and assigns it to the id in the table
+    pub(crate) fn alloc(&mut self, id: usize, type_: Type) {
         let address = self.mem.borrow_mut().new_address(&type_);
-        self.items.insert(id, Var {
-            type_,
-            address,
-        });
+        self.items.insert(id, Var { type_, address });
     }
 
+    /// Returns the value of the variable with the given id
     pub(crate) fn get_val(&self, id: &usize) -> Value {
         self.items[id].get(&self.mem.borrow())
     }
 
+    /// Sets the value of the variable with the given id
     pub(crate) fn set_val(&self, id: &usize, value: Value) {
         self.items[id].set(&mut self.mem.borrow_mut(), value);
     }
 
+    /// Free the memory allocated for the variable and remove the id from the table
     pub(crate) fn remove(&mut self, id: &usize) {
         self.items[id].free(&mut self.mem.borrow_mut());
         self.items.remove(&id).unwrap();
@@ -161,11 +156,11 @@ mod tests {
     fn test_add_var() {
         let mem = Memory::new();
         let mut table = Table::new(&mem);
-        
-        table.insert(0, Type::Int);
-        table.insert(1, Type::Float);
-        table.insert(2, Type::Char);
-        table.insert(3, Type::Bool);
+
+        table.alloc(0, Type::Int);
+        table.alloc(1, Type::Float);
+        table.alloc(2, Type::Char);
+        table.alloc(3, Type::Bool);
 
         assert_eq!(table.get_val(&0), Value::Int(0));
         assert_eq!(table.get_val(&1), Value::Float(0.0));
@@ -177,11 +172,11 @@ mod tests {
     fn test_rem_var() {
         let mem = Memory::new();
         let mut table = Table::new(&mem);
-        
-        table.insert(0, Type::Int);
-        table.insert(1, Type::Float);
-        table.insert(2, Type::Char);
-        table.insert(3, Type::Bool);
+
+        table.alloc(0, Type::Int);
+        table.alloc(1, Type::Float);
+        table.alloc(2, Type::Char);
+        table.alloc(3, Type::Bool);
 
         table.remove(&0);
         table.remove(&1);
@@ -196,11 +191,11 @@ mod tests {
         let mem = Memory::new();
         let mut table = Table::new(&mem);
         let mut table2 = Table::new(&mem);
-        
-        table.insert(10, Type::Int);
-        table.insert(11, Type::Float);
-        table2.insert(10, Type::Char);
-        table2.insert(11, Type::Bool);
+
+        table.alloc(10, Type::Int);
+        table.alloc(11, Type::Float);
+        table2.alloc(10, Type::Char);
+        table2.alloc(11, Type::Bool);
 
         assert_eq!(table.get_val(&10), Value::Int(0));
         assert_eq!(table.get_val(&11), Value::Float(0.0));
@@ -213,8 +208,8 @@ mod tests {
         let mem = Memory::new();
         let mut table = Table::new(&mem);
         let mut table2 = Table::new(&mem);
-        table.insert(0, Type::Int);
-        table2.insert(0, Type::Float);
+        table.alloc(0, Type::Int);
+        table2.alloc(0, Type::Float);
 
         table.set_val(&0, Value::Int(10));
         table2.set_val(&0, Value::Float(10.6));
