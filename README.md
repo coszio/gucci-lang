@@ -19,9 +19,9 @@ It was made using [chumsky](https://github.com/zesterer/chumsky) and [ariadne](h
 - [x] Code generation for conditional statements and loops
 - [x] Code generation for functions
 - [x] Memory map for virtual machine execution. 
-  - [ ] Virtual Machine: execution of arithmetic expressions and sequential statements.
-- [ ] Code generation for structured data 
-  - [ ] Virtual Machine: execution of conditional statements.
+  - [x] Virtual Machine: execution of arithmetic expressions and sequential statements.
+- [x] Code generation for structured data 
+  - [x] Virtual Machine: execution of conditional statements.
 - [ ] 1st version of documentation
 
 ## Made by
