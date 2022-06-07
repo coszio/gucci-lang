@@ -2,6 +2,7 @@ use std::{fmt::Display, str::FromStr};
 
 use crate::shared::{Span, Spanned};
 
+/// Just a collection of statements
 pub(crate) type Block = Vec<Spanned<Stmt>>;
 
 /// Building blocks of the AST, all the possible variants of a statement
@@ -215,7 +216,7 @@ impl FromStr for Literal {
     }
 }
 
-
+/// All the possible types
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     //// Primitive
