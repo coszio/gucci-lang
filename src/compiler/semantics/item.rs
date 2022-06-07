@@ -10,6 +10,7 @@ pub(crate) struct Item {
   pub type_: Option<Type>,
 }
 
+/// The content of a single item in the symbol table
 impl Item {
   pub fn new(id: String, name: String, kind: Kind, type_: Type) -> Self {
     Item {

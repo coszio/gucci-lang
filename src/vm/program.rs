@@ -8,6 +8,7 @@ use super::value::Value;
 
 use super::*;
 
+/// A program represents the virtual machine that will execute all the actions
 #[derive(Debug)]
 pub struct Program {
     memory: Rc<RefCell<memory::Memory>>,
@@ -40,6 +41,11 @@ impl Program {
     }
 
     pub fn load(&mut self, path: &str) -> &mut Self {
+        
+        if !path.ends_with(".gu.bs") {
+            panic!("This is not a compiled file! Compiled files end in *.gu.bs")
+        }
+
         let (funs, consts, instrs) = reader::load_obj(path);
 
         for fun in funs {

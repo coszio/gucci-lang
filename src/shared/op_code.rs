@@ -7,7 +7,6 @@ use crate::compiler::parser::ast::{BinOp, UnOp};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum OpCode {
-    Era,
     Param,
     BeginBlock,
     EndBlock,
@@ -43,7 +42,6 @@ pub(crate) enum OpCode {
 impl Display for OpCode {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
-            OpCode::Era => write!(f, "ERA"),
             OpCode::BeginBlock => write!(f, "BEGINBLOCK"),
             OpCode::EndBlock => write!(f, "ENDBLOCK"),
             OpCode::Goto => write!(f, "GOTO"),
@@ -119,7 +117,6 @@ impl FromStr for OpCode {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let op_code = match s {
-            "ERA" => OpCode::Era,
             "PARAM" => OpCode::Param,
             "BEGINBLOCK" => OpCode::BeginBlock,
             "ENDBLOCK" => OpCode::EndBlock,
