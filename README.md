@@ -10,6 +10,11 @@ Gucci Lang is an object-oriented language for learning and practicing SOLID prin
 
 It was made using [chumsky](https://github.com/zesterer/chumsky) and [ariadne](https://github.com/zesterer/ariadne), and aims to have a simple syntax for didactic purposes.
 
+## Documentation
+
+Run `cargo doc --open`
+
+
 ## How to use it
 
 To create the executable, run `cargo build`. It will create a binary in `target/debug/gucci-lang.exe`.
