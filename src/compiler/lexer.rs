@@ -8,6 +8,7 @@ use chumsky::{
 
 use crate::shared::Span;
 
+/// The different kinds of operators
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Op {
     Add,
@@ -49,6 +50,7 @@ impl Display for Op {
     }
 }
 
+/// All the variants of tokens
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Token {
     Void,
@@ -112,6 +114,7 @@ impl Display for Token {
     }
 }
 
+/// Transforms a stream of chars into a vector of tokens
 pub(crate) fn lexer() -> impl Parser<char, Vec<(Token, Span)>, Error = Simple<char>> {
     let keyword_or_id = text::ident().map(|s: String| match s.as_str() {
         "void" => Token::Void,

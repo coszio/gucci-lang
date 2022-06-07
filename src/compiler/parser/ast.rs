@@ -2,15 +2,13 @@ use std::{fmt::Display, str::FromStr};
 
 use crate::shared::{Span, Spanned};
 
+/// Just a collection of statements
 pub(crate) type Block = Vec<Spanned<Stmt>>;
 
+/// Building blocks of the AST, all the possible variants of a statement
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Stmt {
     Decl(Decl),
-    // Assign {
-    //     to: Field, 
-    //     value: Spanned<Expr>,
-    // },
     Cond {
         if_: Spanned<Expr>,
         then: Block,
@@ -24,23 +22,7 @@ pub(crate) enum Stmt {
     Error,
 }
 
-// #[derive(Debug, Clone, PartialEq)]
-// pub(crate) struct Field {
-//     pub(crate) name: String,
-//     pub(crate) child: Option<Box<Self>>,
-// }
-// impl ToString for Field {
-//     fn to_string(&self) -> String {
-//         let mut s = String::new();
-//         s.push_str(&self.name);
-//         if let Some(ref child) = self.child {
-//             s.push_str(".");
-//             s.push_str(&child.to_string());
-//         }
-//         s
-//     }
-// }
-
+/// All the possible variants of a declaration
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Decl {
     Let { 
@@ -62,12 +44,14 @@ pub(crate) enum Decl {
     },
 }
 
+/// A variable with name and type
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Var {
     pub name: String,
     pub type_: Type,
 }
 
+/// A function declaration
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Fun {
     pub name: String,
@@ -76,6 +60,7 @@ pub(crate) struct Fun {
     pub body: Block,
 }
 
+/// A function signature, used for implementing interfaces
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct FunSignature {
     pub name: String,
@@ -83,7 +68,7 @@ pub(crate) struct FunSignature {
     pub ret_type: Option<Type>,
 }
 
-
+/// An statement that loops over a block of statements
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Loop {
     While {
@@ -92,6 +77,7 @@ pub(crate) enum Loop {
     },
 }
 
+/// All the possible variants of an expression
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Expr {
     Error,
@@ -113,6 +99,7 @@ pub(crate) enum Expr {
     Array(Vec<Spanned<Self>>),
 }
 
+/// Operators that act on two values
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum BinOp {
     //// Assignment
@@ -160,6 +147,7 @@ impl Display for BinOp {
     }
 }
 
+/// Operators that act on only one value
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum UnOp {
     Not,
@@ -174,6 +162,7 @@ impl Display for UnOp {
     }
 }
 
+/// A literal value like `1, 2.5, 'c'`, etc.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Literal {
     Int(i32),
@@ -227,7 +216,7 @@ impl FromStr for Literal {
     }
 }
 
-
+/// All the possible types
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
     //// Primitive
@@ -245,23 +234,6 @@ pub enum Type {
 
     //// Error handling
     Error,
-}
-impl Type {
-    pub fn size(&self) -> usize {
-        match self {
-            // stored in the stack
-            Type::Int => 32,
-            Type::Float => 32,
-            Type::Bool => 1,
-            Type::Char => 8,
-
-            // stored in the heap (unknown size)
-            Type::Array(t) => 0,
-            Type::String => 0,
-            Type::Custom(s) => 0,
-            Type::Error => 0,
-        }
-    }
 }
 
 impl Display for Type {

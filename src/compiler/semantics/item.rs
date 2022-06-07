@@ -2,6 +2,9 @@ use std::fmt::Display;
 
 use crate::{utils::directory::Key, compiler::parser::ast::{Type, Var}, shared::Spanned};
 
+/// The content of a single item in the symbol table.
+/// 
+/// All the information needed to identify a named element of the code.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Item { 
   pub id: String,

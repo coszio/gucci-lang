@@ -10,7 +10,19 @@ Gucci Lang is an object-oriented language for learning and practicing SOLID prin
 
 It was made using [chumsky](https://github.com/zesterer/chumsky) and [ariadne](https://github.com/zesterer/ariadne), and aims to have a simple syntax for didactic purposes.
 
-# Implemented features
+## How to use it
+
+To create the executable, run `cargo build`. It will create a binary in `target/debug/gucci-lang.exe`.
+
+To compile a gucci file, create a file ending with `.gu` and run `gucci_lang.exe compile <filename>`.
+
+To run an already compiled gucci file, run `gucci_lang.exe run <filename>`, the filename must end in `.gu.bs`.
+
+To compile and run in the same command, run `gucci_lang.exe compile_run <filename>`.
+
+It is possible to use the short version of the actions: `c`, `r`, `cr`, respectively.
+
+## Implemented features
 
 - [x] Lexical analysis
 - [x] Syntactic analysis
@@ -19,10 +31,10 @@ It was made using [chumsky](https://github.com/zesterer/chumsky) and [ariadne](h
 - [x] Code generation for conditional statements and loops
 - [x] Code generation for functions
 - [x] Memory map for virtual machine execution. 
-  - [x] Virtual Machine: execution of arithmetic expressions and sequential statements.
-- [x] Code generation for structured data 
-  - [x] Virtual Machine: execution of conditional statements.
-- [ ] 1st version of documentation
+- [x] Virtual Machine: execution of arithmetic expressions and sequential statements.
+- [ ] Code generation for structured data 
+- [x] Virtual Machine: execution of conditional statements.
+- [x] 1st version of documentation
 
 ## Made by
 

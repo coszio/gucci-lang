@@ -2,7 +2,7 @@ pub mod ast;
 
 use chumsky::{
     prelude::{
-        choice, filter_map, just, nested_delimiters, recursive, skip_then_retry_until, Simple,
+        choice, filter_map, just, nested_delimiters, recursive, Simple,
     },
     select, Parser,
 };
@@ -13,6 +13,7 @@ use super::lexer::{Op, Token};
 
 use self::ast::*;
 
+/// Parses the input tokens into a vector of statements, representing an abstract syntax tree
 pub(crate) fn parser() -> impl Parser<Token, Vec<Spanned<Stmt>>, Error = Simple<Token>> {
     let ident = select! { Token::Ident(name) => name.clone() }.labelled("identifier");
 

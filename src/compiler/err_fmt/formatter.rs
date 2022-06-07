@@ -5,6 +5,7 @@ use crate::{
 use ariadne::{sources, Color, Fmt, Label, Report, ReportKind, Source};
 use chumsky::prelude::Simple;
 
+/// An error wrapper to pretty-print the errors
 pub(crate) enum Error {
     SemanticError(Spanned<SemErr>),
     LexicalError(Simple<String>),
@@ -30,6 +31,8 @@ impl From<&Spanned<SemErr>> for Error {
 }
 
 impl Error {
+
+    /// Create an [`ariadne`]'s [`Report`] from the error
     pub(crate) fn report(self, src: &str) -> Report<(&str, std::ops::Range<usize>)> {
         match self {
             Error::SemanticError((sem_err, span)) => {

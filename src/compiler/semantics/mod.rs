@@ -1,7 +1,13 @@
 
+/// Implementation of the `Item` struct to be used in the scope directory.
 pub mod item;
+
+/// Implementation of the semantic considerations for binary operations.
 pub mod semantic_cube;
+
+/// Implementation of the semantic considerations for unary operations.
 pub mod semantic_square;
+
 
 use std::fmt::{Debug, Display};
 use lazy_static::lazy_static;
@@ -78,6 +84,7 @@ fn reset_counters() {
 
 pub(self) type Result<T> = std::result::Result<T, Spanned<Error>>;
 
+/// Maps the errors originated in [`Dir`] to semantic errors
 fn map_dir_errs(err: directory::Error) -> Error {
   match err {
     directory::Error::Nonexistent(id) => Error::Undefined(id),
@@ -177,8 +184,8 @@ pub(crate) fn eval_expr(expr: &mut Expr, span: Span, scope: &Scope) -> Result<Ty
 
 }
 
-/// Evaluates statements and returns and replaces identifiers with their ids from the scope.
-/// Returns a clone of the statement, but with the ids replaced.
+/// Evaluates statements and replaces identifiers with their ids from the scope.
+/// Returns a copy of the statement, but with the ids replaced.
 pub(crate) fn eval_stmt(stmt: Stmt, span: Span, scope: &mut Scope) -> Result<Spanned<Stmt>> {
 
   match stmt {

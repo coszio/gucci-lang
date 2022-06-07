@@ -28,11 +28,7 @@ struct Function {
     ret_type: Option<Type>,
     ret_dir: Option<String>,
 }
-impl Function {
-    fn size(&self) -> usize {
-        self.params.iter().map(|(_, t)| t.size()).sum()
-    }
-}
+
 impl Display for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let type_ = match &self.ret_type { Some(t) => t.to_string(), None => "".to_string() };
