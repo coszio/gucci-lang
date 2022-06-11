@@ -1,0 +1,33 @@
+      f0      ,      1       ,     int      ,      r0      
+%%
+      c0      , i:1
+      c1      , i:0
+      c2      , i:1
+      c3      , i:5
+%%
+   0.     GOTO     ,              ,      21      ,              
+   1.  BEGINBLOCK  ,              ,              ,              
+   2.    NEWVAR    ,     int      ,      v0      ,              
+   3.      =       ,      p0      ,              ,      v0      
+   4.    NEWVAR    ,     int      ,      v1      ,              
+   5.      =       ,      c0      ,              ,      v1      
+   6.      GT      ,      v0      ,      c1      ,      t0      
+   7.    GOTOF     ,      t0      ,      17      ,              
+   8.  BEGINBLOCK  ,              ,              ,              
+   9.     SUB      ,      v0      ,      c2      ,      t1      
+  10.    PARAM     ,      t1      ,              ,      p0      
+  11.    GOSUB     ,      f0      ,      1       ,              
+  12.      =       ,      r0      ,              ,      t2      
+  13.     MUL      ,      t2      ,      v0      ,      t3      
+  14.      =       ,      t3      ,              ,      v1      
+  15.   ENDBLOCK   ,              ,              ,              
+  16.     GOTO     ,              ,      17      ,              
+  17.      =       ,      v1      ,              ,      r0      
+  18.     GOTO     ,              ,      19      ,              
+  19.   ENDBLOCK   ,              ,              ,              
+  20.    ENDSUB    ,              ,              ,              
+  21.    PARAM     ,      c3      ,              ,      p0      
+  22.    GOSUB     ,      f0      ,      1       ,              
+  23.      =       ,      r0      ,              ,      t4      
+  24.    PRINT     ,      t4      ,              ,              
+  25.     END      ,              ,              ,              

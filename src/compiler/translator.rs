@@ -13,11 +13,13 @@ use super::parser::ast::{BinOp, Block, Decl, Expr, Fun, Literal, Stmt, Type};
 lazy_static! {
     static ref TEMP_COUNTER: Counter = Counter::new("t");
     static ref CONST_COUNTER: Counter = Counter::new("c");
+    static ref RETS_COUNTER: Counter = Counter::new("r");
 }
 
 fn reset_counters() {
     TEMP_COUNTER.reset();
     CONST_COUNTER.reset();
+    RETS_COUNTER.reset();
 }
 
 #[derive(Clone)]
@@ -248,7 +250,7 @@ fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
                 // setup return
                 let mut ret_dest: String = String::new();
                 if let Some(_) = ret_type {
-                    let dest = TEMP_COUNTER.new_id();
+                    let dest = RETS_COUNTER.new_id();
                     fun.ret_dir = Some(dest.clone());
                     ret_dest = dest;
                 }
@@ -301,10 +303,12 @@ fn translate_stmt(output: &mut BigSheep, stmt: Stmt) -> String {
 
                 // end function
                 output.quads.push(Quad::new(OpCode::EndBlock, "", "", ""));
+
+                let endblock_ptr = output.quads.len() - 1;
+
                 output.quads.push(Quad::new(OpCode::EndSub, "", "", ""));
 
                 if let Some(ret_goto_ptr) = ret_goto_ptr {
-                    let endblock_ptr = output.quads.len() - 1;
                     output.quads[ret_goto_ptr].arg2 = endblock_ptr.to_string();
                 }
                 output.quads[goto_ptr].arg2 = output.quads.len().to_string(); // set GOTO to point to end of function
@@ -749,23 +753,23 @@ mod tests {
             quads,
         } = translate_from_src(src).unwrap();
         assert_quads(quads, vec![
-            "     GOTO     ,              ,      10       ,              ",
-            "  BEGINBLOCK  ,              ,              ,              ",
-            "    NEWVAR    ,     int      ,      v0      ,              ",
-            "    NEWVAR    ,     int      ,      v1      ,              ",
-            "      =       ,      p0      ,              ,      v0      ",
-            "      =       ,      p1      ,              ,      v1      ",                
-            "      =       ,      c0      ,              ,      t0      ",        
-            "     GOTO     ,              ,      9       ,              ",        
-            "   ENDBLOCK   ,              ,              ,              ",
-            "    ENDSUB     ,             ,              ,              ",
-            "    NEWVAR    ,    float     ,      v2      ,              ",
-            "    PARAM     ,      c1      ,              ,      p0      ",
-            "    PARAM     ,      c2      ,              ,      p1      ",
-            "    GOSUB     ,      f0      ,      1       ,              ",
-            "      =       ,      t0      ,              ,      t1      ",        
-            "      =       ,      t1      ,              ,      v2      ",        
-            "     END      ,              ,              ,              ",
+            "     GOTO     ,              ,      10      ,           ",
+            "  BEGINBLOCK  ,              ,              ,",
+            "    NEWVAR    ,     int      ,      v0      ,",
+            "    NEWVAR    ,     int      ,      v1      ,",
+            "      =       ,      p0      ,              ,      v0",
+            "      =       ,      p1      ,              ,      v1",
+            "      =       ,      c0      ,              ,      r0",
+            "     GOTO     ,              ,      8       ,",
+            "   ENDBLOCK   ,              ,              ,",
+            "    ENDSUB    ,              ,              ,",
+            "    NEWVAR    ,    float     ,      v2      ,",
+            "    PARAM     ,      c1      ,              ,      p0",
+            "    PARAM     ,      c2      ,              ,      p1",
+            "    GOSUB     ,      f0      ,      1       ,",
+            "      =       ,      r0      ,              ,      t0",
+            "      =       ,      t0      ,              ,      v2",
+            "     END      ,              ,              ,",
         ]);
     }
 
@@ -790,38 +794,38 @@ mod tests {
         } = translate_from_src(src).unwrap();
 
         assert_quads(quads, vec![
-            "     GOTO     ,              ,      31      ,        ",
-            "  BEGINBLOCK  ,              ,              ,        ",
-            "    NEWVAR    ,     int      ,      v0      ,        ",
-            "      =       ,      p0      ,              ,      v0",       
-            "    NEWVAR    ,     int      ,      v1      ,        ",
-            "      =       ,      c0      ,              ,      v1",       
-            "      EQ      ,      v0      ,      c1      ,      t1",       
-            "    GOTOF     ,      t1      ,      12      ,        ",
-            "  BEGINBLOCK  ,              ,              ,        ",
-            "      =       ,      c2      ,              ,      v1",       
-            "   ENDBLOCK   ,              ,              ,        ",
-            "     GOTO     ,              ,      27      ,        ",
-            "      GT      ,      v0      ,      c3      ,      t2",       
-            "    GOTOF     ,      t2      ,      27      ,        ",
-            "  BEGINBLOCK  ,              ,              ,        ",
-            "     SUB      ,      v0      ,      c4      ,      t3",       
-            "    PARAM     ,      t3      ,              ,      p0",       
-            "    GOSUB     ,      f0      ,      1       ,        ",
-            "      =       ,      t0      ,              ,      t4",       
-            "     SUB      ,      v0      ,      c5      ,      t5",       
-            "    PARAM     ,      t5      ,              ,      p0",       
-            "    GOSUB     ,      f0      ,      1       ,        ",
-            "      =       ,      t0      ,              ,      t6",       
-            "     ADD      ,      t4      ,      t6      ,      t7",       
-            "      =       ,      t7      ,              ,      v1",       
-            "   ENDBLOCK   ,              ,              ,        ",
-            "     GOTO     ,              ,      27      ,        ",
-            "      =       ,      v1      ,              ,      t0",       
-            "     GOTO     ,              ,      30      ,        ",       
-            "   ENDBLOCK   ,              ,              ,        ",
-            "    ENDSUB     ,             ,              ,        ",
-            "     END      ,              ,              ,        ",
+            "    GOTO     ,              ,      31      ,           ",
+            "  BEGINBLOCK  ,              ,              ,",
+            "    NEWVAR    ,     int      ,      v0      ,",
+            "      =       ,      p0      ,              ,      v0",
+            "    NEWVAR    ,     int      ,      v1      ,",
+            "      =       ,      c0      ,              ,      v1",
+            "      EQ      ,      v0      ,      c1      ,      t0",
+            "    GOTOF     ,      t0      ,      12      ,",
+            "  BEGINBLOCK  ,              ,              ,",
+            "      =       ,      c2      ,              ,      v1",
+            "   ENDBLOCK   ,              ,              ,",
+            "     GOTO     ,              ,      27      ,",
+            "      GT      ,      v0      ,      c3      ,      t1",
+            "    GOTOF     ,      t1      ,      27      ,",
+            "  BEGINBLOCK  ,              ,              ,",
+            "     SUB      ,      v0      ,      c4      ,      t2",
+            "    PARAM     ,      t2      ,              ,      p0",
+            "    GOSUB     ,      f0      ,      1       ,",
+            "      =       ,      r0      ,              ,      t3",
+            "     SUB      ,      v0      ,      c5      ,      t4",
+            "    PARAM     ,      t4      ,              ,      p0",
+            "    GOSUB     ,      f0      ,      1       ,",
+            "      =       ,      r0      ,              ,      t5",
+            "     ADD      ,      t3      ,      t5      ,      t6",
+            "      =       ,      t6      ,              ,      v1",
+            "   ENDBLOCK   ,              ,              ,",
+            "     GOTO     ,              ,      27      ,",
+            "      =       ,      v1      ,              ,      r0",
+            "     GOTO     ,              ,      29      ,",
+            "   ENDBLOCK   ,              ,              ,",
+            "    ENDSUB    ,              ,              ,",
+            "     END      ,              ,              ,",
         ]);
     }
 }

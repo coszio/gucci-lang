@@ -1,0 +1,46 @@
+      f0      ,      1       ,     int      ,      r0      
+%%
+      c0      , i:0
+      c1      , i:1
+      c2      , i:1
+      c3      , i:1
+      c4      , i:1
+      c5      , i:2
+      c6      , i:20
+%%
+   0.     GOTO     ,              ,      31      ,              
+   1.  BEGINBLOCK  ,              ,              ,              
+   2.    NEWVAR    ,     int      ,      v0      ,              
+   3.      =       ,      p0      ,              ,      v0      
+   4.    NEWVAR    ,     int      ,      v1      ,              
+   5.      =       ,      c0      ,              ,      v1      
+   6.      EQ      ,      v0      ,      c1      ,      t0      
+   7.    GOTOF     ,      t0      ,      12      ,              
+   8.  BEGINBLOCK  ,              ,              ,              
+   9.      =       ,      c2      ,              ,      v1      
+  10.   ENDBLOCK   ,              ,              ,              
+  11.     GOTO     ,              ,      27      ,              
+  12.      GT      ,      v0      ,      c3      ,      t1      
+  13.    GOTOF     ,      t1      ,      27      ,              
+  14.  BEGINBLOCK  ,              ,              ,              
+  15.     SUB      ,      v0      ,      c4      ,      t2      
+  16.    PARAM     ,      t2      ,              ,      p0      
+  17.    GOSUB     ,      f0      ,      1       ,              
+  18.      =       ,      r0      ,              ,      t3      
+  19.     SUB      ,      v0      ,      c5      ,      t4      
+  20.    PARAM     ,      t4      ,              ,      p0      
+  21.    GOSUB     ,      f0      ,      1       ,              
+  22.      =       ,      r0      ,              ,      t5      
+  23.     ADD      ,      t3      ,      t5      ,      t6      
+  24.      =       ,      t6      ,              ,      v1      
+  25.   ENDBLOCK   ,              ,              ,              
+  26.     GOTO     ,              ,      27      ,              
+  27.      =       ,      v1      ,              ,      r0      
+  28.     GOTO     ,              ,      29      ,              
+  29.   ENDBLOCK   ,              ,              ,              
+  30.    ENDSUB    ,              ,              ,              
+  31.    PARAM     ,      c6      ,              ,      p0      
+  32.    GOSUB     ,      f0      ,      1       ,              
+  33.      =       ,      r0      ,              ,      t7      
+  34.    PRINT     ,      t7      ,              ,              
+  35.     END      ,              ,              ,              

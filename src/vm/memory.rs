@@ -175,7 +175,8 @@ impl Table {
 
     /// Returns the value of the variable with the given id
     pub(crate) fn get_val(&self, id: &usize) -> Value {
-        self.items[id].get(&self.mem.borrow())
+        self.items.get(id).expect(format!("No id found for {}", id).as_str())
+            .get(&self.mem.borrow())
     }
 
     /// Sets the value of the variable with the given id

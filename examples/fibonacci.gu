@@ -1,0 +1,11 @@
+fun fibonacci(n: int): int {
+  let ans: int = 0;
+  if n == 1 {
+    ans = 1;
+  } else if n > 1 {
+    ans = fibonacci(n - 1) + fibonacci(n - 2);
+  }
+  return ans;
+}
+
+print fibonacci(20);

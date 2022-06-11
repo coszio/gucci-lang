@@ -1,0 +1,9 @@
+fun factorial(n: int): int {
+  let ans: int = 1;
+  if n > 0 {
+    ans = factorial(n-1) * n;
+  }
+  return ans;
+}
+
+print factorial(5);

@@ -8,13 +8,28 @@ use super::value::Value;
 
 use super::*;
 
+#[derive(Debug)]
+struct Call {
+    vars: memory::Table,
+    temps: memory::Table,
+}
+
+impl Call {
+    fn new(mem: &Rc<RefCell<memory::Memory>>) -> Self {
+        Self {
+            vars: memory::Table::new(&mem),
+            temps: memory::Table::new(&mem),
+        }
+    }
+}
 /// A program represents the virtual machine that will execute all the actions
 #[derive(Debug)]
 pub struct Program {
     memory: Rc<RefCell<memory::Memory>>,
-    vars: memory::Table,
+    stack: Vec<Call>,
+    // vars: Vec<memory::Table>,
     consts: memory::Table,
-    temps: memory::Table,
+    fun_rets: memory::Table,
     params: memory::Table,
     var_stack: Vec<Vec<usize>>,
     funs: HashMap<usize, usize>,
@@ -28,9 +43,10 @@ impl Program {
         let mem = memory::Memory::new();
         Self {
             memory: Rc::clone(&mem),
-            vars: memory::Table::new(&mem),
+            stack: vec![Call::new(&mem)],
+            // vars: vec![memory::Table::new(&mem)],
             consts: memory::Table::new(&mem),
-            temps: memory::Table::new(&mem),
+            fun_rets: memory::Table::new(&mem),
             params: memory::Table::new(&mem),
             var_stack: vec![vec![]],
             funs: HashMap::new(),
@@ -51,7 +67,7 @@ impl Program {
         for fun in funs {
             self.funs.insert(fun.id, fun.pointer);
             if let Some((ret_type, id)) = fun.ret {
-                self.temps.alloc(id, ret_type);
+                self.fun_rets.alloc(id, ret_type);
             }
         }
         for const_ in consts {
@@ -66,19 +82,21 @@ impl Program {
 
     fn get_table(&self, id: &str) -> &memory::Table {
         match id {
-            "v" => &self.vars,
+            "v" => &self.stack.last().unwrap().vars,
             "c" => &self.consts,
-            "t" => &self.temps,
+            "t" => &self.stack.last().unwrap().temps,
             "p" => &self.params,
+            "r" => &self.fun_rets,
             _ => panic!("invalid table id"),
         }
     }
     fn get_mut_table(&mut self, id: &str) -> &mut memory::Table {
         match id {
-            "v" => &mut self.vars,
+            "v" => &mut self.stack.last_mut().unwrap().vars,
             "c" => &mut self.consts,
-            "t" => &mut self.temps,
+            "t" => &mut self.stack.last_mut().unwrap().temps,
             "p" => &mut self.params,
+            "r" => &mut self.fun_rets,
             _ => panic!("invalid table id"),
         }
     }
@@ -120,7 +138,7 @@ impl Program {
 
         // if the operation assigns to a temp, it means it is a new temp variable
         if table_id == "t" {
-            self.temps.alloc(r_id, res.clone().into());
+            self.stack.last_mut().unwrap().temps.alloc(r_id, res.clone().into());
         }
 
         // assign
@@ -197,6 +215,7 @@ impl Program {
             OpCode::GoSub => {
                 // add current ip to the stack
                 self.ip_stack.push(self.ip);
+                self.stack.push(Call::new(&self.memory));
 
                 // go to function
                 let ip = quad.arg2.parse::<usize>().unwrap();
@@ -205,6 +224,7 @@ impl Program {
             OpCode::EndSub => {
                 // pop ip from stack
                 self.ip = self.ip_stack.pop().unwrap();
+                self.stack.pop();
             }
 
             OpCode::Print => {
@@ -225,7 +245,7 @@ impl Program {
                 // throw away declared variables
                 let block_vars = self.var_stack.pop().unwrap();
                 for id in block_vars {
-                    self.vars.remove(&id);
+                    self.stack.last_mut().unwrap().vars.remove(&id);
                 }
             }
             OpCode::Param => {
@@ -275,8 +295,8 @@ mod tests {
 
         assert_eq!(prog.funs.len(), 2);
         assert_eq!(prog.consts.len(), 6);
-        assert_eq!(prog.vars.len(), 0);
-        assert_eq!(prog.temps.len(), 1);
+        assert_eq!(prog.stack.last().unwrap().vars.len(), 0);
+        assert_eq!(prog.fun_rets.len(), 1);
     }
 
     #[test]
