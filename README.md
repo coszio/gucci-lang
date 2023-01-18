@@ -6,7 +6,7 @@
 
 ## What is Gucci Lang?
 
-Gucci Lang is an object-oriented language for learning and practicing SOLID principles.
+Gucci Lang is an toy language made with the purpose of learning language design.
 
 It was made using [chumsky](https://github.com/zesterer/chumsky) and [ariadne](https://github.com/zesterer/ariadne), and aims to have a simple syntax for didactic purposes.
 
